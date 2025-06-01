@@ -1,3 +1,4 @@
+
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
@@ -36,6 +37,7 @@ import PerformanceInsights from '@/components/dashboard/PerformanceInsights'
 import CustomizableDashboard from '@/components/dashboard/CustomizableDashboard'
 import GoogleCalendarIntegration from '@/components/dashboard/GoogleCalendarIntegration'
 import N8nApiIntegration from '@/components/dashboard/N8nApiIntegration'
+import AdvancedStravaAnalytics from '@/components/dashboard/AdvancedStravaAnalytics'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()

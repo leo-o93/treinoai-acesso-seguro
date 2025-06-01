@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getStravaActivities } from '@/lib/database'
 
 interface AdvancedMetrics {
-  powerZones: { zone: string; time: number; percentage: number }[]
+  powerZones: { zone: string; time: number; percentage: number; color: string }[]
   heartRateZones: { zone: string; time: number; color: string }[]
   trainingLoad: { date: string; load: number; fitness: number; fatigue: number }[]
   performanceTrends: { metric: string; current: number; previous: number; change: number }[]

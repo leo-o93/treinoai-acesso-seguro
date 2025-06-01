@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Calendar, Sync, Settings, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react'
+import { Calendar, RefreshCw, Settings, ExternalLink, CheckCircle, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from '@/hooks/use-toast'
 
@@ -144,7 +144,7 @@ const GoogleCalendarIntegration: React.FC = () => {
                 onClick={syncCalendarEvents}
                 disabled={syncStatus === 'syncing'}
               >
-                <Sync className={`w-3 h-3 mr-1 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3 h-3 mr-1 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
                 {syncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar'}
               </Button>
             </div>
