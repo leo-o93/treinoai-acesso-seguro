@@ -11,15 +11,20 @@ interface OAuthButtonsProps {
 const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
   const handleGoogleSignIn = async () => {
     try {
+      console.log('Iniciando login com Google...')
       const { error } = await signInWithGoogle()
       if (error) {
+        console.error('Erro no login Google:', error)
         toast({
           title: 'Erro ao fazer login com Google',
           description: error.message,
           variant: 'destructive',
         })
+      } else {
+        console.log('Redirecionando para Google...')
       }
     } catch (error) {
+      console.error('Erro inesperado:', error)
       toast({
         title: 'Erro',
         description: 'Ocorreu um erro inesperado.',
