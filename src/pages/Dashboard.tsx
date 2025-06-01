@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
@@ -30,6 +29,10 @@ import {
 } from '@/lib/database'
 import { Activity, Calendar, Target, TrendingUp, Settings, Bell, MessageSquare, BarChart3 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
+import AchievementSystem from '@/components/dashboard/AchievementSystem'
+import MotivationalMessages from '@/components/dashboard/MotivationalMessages'
+import RealtimeUpdates from '@/components/dashboard/RealtimeUpdates'
+import PerformanceInsights from '@/components/dashboard/PerformanceInsights'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -131,6 +134,11 @@ const Dashboard: React.FC = () => {
           </div>
         </header>
 
+        {/* Mensagem Motivacional */}
+        <div className="mb-8">
+          <MotivationalMessages />
+        </div>
+
         {/* Quick Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <StatsCard
@@ -174,6 +182,16 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Sistema de Conquistas */}
+        <div className="mb-8">
+          <AchievementSystem />
+        </div>
+
+        {/* Performance Insights */}
+        <div className="mb-8">
+          <PerformanceInsights />
+        </div>
+
         {/* Advanced Performance Analytics */}
         <div className="mb-8">
           <AdvancedPerformance activities={activities} />
@@ -213,6 +231,9 @@ const Dashboard: React.FC = () => {
 
         {/* Recent Activities */}
         <RecentActivities activities={activities} />
+
+        {/* Sistema de Realtime Updates */}
+        <RealtimeUpdates />
       </div>
     </div>
   )
