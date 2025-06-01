@@ -35,16 +35,21 @@ export const resetPassword = async (email: string) => {
 }
 
 export const signInWithGoogle = async () => {
+  console.log('Configurando login com Google...')
+  console.log('Origin atual:', window.location.origin)
+  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
       redirectTo: `${window.location.origin}/dashboard`,
       queryParams: {
         access_type: 'offline',
-        prompt: 'consent',
+        prompt: 'select_account',
       },
     },
   })
+  
+  console.log('Resultado do signInWithOAuth:', { data, error })
   return { data, error }
 }
 

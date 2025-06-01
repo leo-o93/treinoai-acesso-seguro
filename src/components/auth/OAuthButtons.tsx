@@ -11,23 +11,31 @@ interface OAuthButtonsProps {
 const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
   const handleGoogleSignIn = async () => {
     try {
-      console.log('Iniciando login com Google...')
-      const { error } = await signInWithGoogle()
+      console.log('Clique no botão Google detectado')
+      console.log('URL atual:', window.location.href)
+      
+      const { data, error } = await signInWithGoogle()
+      
       if (error) {
-        console.error('Erro no login Google:', error)
+        console.error('Erro detalhado do Supabase:', error)
         toast({
           title: 'Erro ao fazer login com Google',
-          description: error.message,
+          description: `Erro: ${error.message}. Verifique as configurações do OAuth.`,
           variant: 'destructive',
         })
-      } else {
-        console.log('Redirecionando para Google...')
+        return
       }
+
+      console.log('Login Google iniciado com sucesso:', data)
+      
+      // O Supabase irá redirecionar automaticamente para o Google
+      // Não precisamos fazer nada mais aqui
+      
     } catch (error) {
-      console.error('Erro inesperado:', error)
+      console.error('Erro inesperado no handleGoogleSignIn:', error)
       toast({
-        title: 'Erro',
-        description: 'Ocorreu um erro inesperado.',
+        title: 'Erro inesperado',
+        description: 'Ocorreu um erro ao tentar conectar com o Google. Tente novamente.',
         variant: 'destructive',
       })
     }

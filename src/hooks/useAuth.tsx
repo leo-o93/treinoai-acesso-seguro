@@ -9,9 +9,12 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.log('useAuth: Configurando listener de autenticação')
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('useAuth: Evento de autenticação:', event, session?.user?.email)
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
@@ -20,12 +23,16 @@ export const useAuth = () => {
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('useAuth: Sessão inicial:', session?.user?.email)
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      console.log('useAuth: Removendo listener de autenticação')
+      subscription.unsubscribe()
+    }
   }, [])
 
   return { user, session, loading }
