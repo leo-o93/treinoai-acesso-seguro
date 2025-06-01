@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client'
 import { Tables } from '@/integrations/supabase/types'
 
@@ -8,6 +9,9 @@ export type NutritionPlan = Tables<'nutrition_plans'>
 export type CalendarEvent = Tables<'calendar_events'>
 export type AIConversation = Tables<'ai_conversations'>
 export type UserGoal = Tables<'user_goals'>
+export type ChatHistory = Tables<'chat_history'>
+export type TrainingPlanHistory = Tables<'training_plans_history'>
+export type StravaToken = Tables<'strava_tokens'>
 
 export const getUserProfile = async (userId: string) => {
   const { data, error } = await supabase
@@ -15,6 +19,17 @@ export const getUserProfile = async (userId: string) => {
     .select('*')
     .eq('user_id', userId)
     .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const upsertUserProfile = async (profile: Partial<UserProfile>) => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .upsert(profile)
+    .select()
+    .single()
 
   if (error) throw error
   return data
@@ -147,4 +162,52 @@ export const getTrainerAIStats = async () => {
     todayMessages: todayData.length,
     weekMessages: weekData.length
   }
+}
+
+export const getChatHistory = async (userId: string, limit = 50) => {
+  const { data, error } = await supabase
+    .from('chat_history')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
+export const getActiveTrainingPlanHistory = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('training_plans_history')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const getStravaToken = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('strava_tokens')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const upsertStravaToken = async (token: Partial<StravaToken>) => {
+  const { data, error } = await supabase
+    .from('strava_tokens')
+    .upsert(token)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
 }

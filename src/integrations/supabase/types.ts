@@ -84,6 +84,36 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          message: string
+          message_type: string
+          response: string | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          message: string
+          message_type: string
+          response?: string | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          message?: string
+          message_type?: string
+          response?: string | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       nutrition_plans: {
         Row: {
           created_at: string
@@ -192,6 +222,39 @@ export type Database = {
         }
         Relationships: []
       }
+      strava_tokens: {
+        Row: {
+          access_token: string
+          athlete_id: string | null
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          athlete_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          athlete_id?: string | null
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       training_plans: {
         Row: {
           created_at: string
@@ -230,6 +293,33 @@ export type Database = {
           status?: string | null
           title?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      training_plans_history: {
+        Row: {
+          created_at: string | null
+          id: string
+          plan_data: Json
+          plan_type: string
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          plan_data: Json
+          plan_type: string
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          plan_data?: Json
+          plan_type?: string
+          status?: string | null
           user_id?: string
         }
         Relationships: []
@@ -276,14 +366,21 @@ export type Database = {
       user_profiles: {
         Row: {
           age: number | null
+          alimentos_disponiveis: string[] | null
+          altura: number | null
           created_at: string
           deadline: string | null
           experience_level: string | null
           food_preferences: string[] | null
+          frequencia_semanal: number | null
           height: number | null
           id: string
           name: string | null
           objective: string | null
+          objetivo: string | null
+          peso: number | null
+          prazo: number | null
+          restricoes_alimentares: string[] | null
           restrictions: string[] | null
           strava_athlete_id: string | null
           strava_connected: boolean | null
@@ -294,14 +391,21 @@ export type Database = {
         }
         Insert: {
           age?: number | null
+          alimentos_disponiveis?: string[] | null
+          altura?: number | null
           created_at?: string
           deadline?: string | null
           experience_level?: string | null
           food_preferences?: string[] | null
+          frequencia_semanal?: number | null
           height?: number | null
           id?: string
           name?: string | null
           objective?: string | null
+          objetivo?: string | null
+          peso?: number | null
+          prazo?: number | null
+          restricoes_alimentares?: string[] | null
           restrictions?: string[] | null
           strava_athlete_id?: string | null
           strava_connected?: boolean | null
@@ -312,14 +416,21 @@ export type Database = {
         }
         Update: {
           age?: number | null
+          alimentos_disponiveis?: string[] | null
+          altura?: number | null
           created_at?: string
           deadline?: string | null
           experience_level?: string | null
           food_preferences?: string[] | null
+          frequencia_semanal?: number | null
           height?: number | null
           id?: string
           name?: string | null
           objective?: string | null
+          objetivo?: string | null
+          peso?: number | null
+          prazo?: number | null
+          restricoes_alimentares?: string[] | null
           restrictions?: string[] | null
           strava_athlete_id?: string | null
           strava_connected?: boolean | null
