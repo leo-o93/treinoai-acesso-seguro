@@ -1,0 +1,108 @@
+
+import { supabase } from '@/integrations/supabase/client'
+import { Tables } from '@/integrations/supabase/types'
+
+export type UserProfile = Tables<'user_profiles'>
+export type StravaActivity = Tables<'strava_activities'>
+export type TrainingPlan = Tables<'training_plans'>
+export type NutritionPlan = Tables<'nutrition_plans'>
+export type CalendarEvent = Tables<'calendar_events'>
+export type AIConversation = Tables<'ai_conversations'>
+export type UserGoal = Tables<'user_goals'>
+
+export const getUserProfile = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const getStravaActivities = async (userId: string, limit = 10) => {
+  const { data, error } = await supabase
+    .from('strava_activities')
+    .select('*')
+    .eq('user_id', userId)
+    .order('start_date', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
+export const getActiveTrainingPlan = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('training_plans')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const getActiveNutritionPlan = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('nutrition_plans')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
+export const getUpcomingEvents = async (userId: string, days = 7) => {
+  const now = new Date()
+  const future = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('start_time', now.toISOString())
+    .lte('start_time', future.toISOString())
+    .order('start_time', { ascending: true })
+
+  if (error) throw error
+  return data
+}
+
+export const getUserGoals = async (userId: string) => {
+  const { data, error } = await supabase
+    .from('user_goals')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+
+  if (error) throw error
+  return data
+}
+
+export const getWeeklyStats = async (userId: string) => {
+  const oneWeekAgo = new Date()
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+
+  const { data, error } = await supabase
+    .from('strava_activities')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('start_date', oneWeekAgo.toISOString())
+
+  if (error) throw error
+  
+  const stats = {
+    totalWorkouts: data.length,
+    totalDistance: data.reduce((sum, activity) => sum + (activity.distance || 0), 0),
+    totalCalories: data.reduce((sum, activity) => sum + (activity.calories || 0), 0),
+    totalTime: data.reduce((sum, activity) => sum + (activity.moving_time || 0), 0)
+  }
+
+  return stats
+}

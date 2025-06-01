@@ -1,11 +1,30 @@
 
 import React, { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from '@/hooks/use-toast'
 import { getCurrentUser, signOut } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import withAuth from '@/components/auth/withAuth'
+import StatsCard from '@/components/dashboard/StatsCard'
+import PerformanceChart from '@/components/dashboard/PerformanceChart'
+import UpcomingEvents from '@/components/dashboard/UpcomingEvents'
+import ActivePlans from '@/components/dashboard/ActivePlans'
+import RecentActivities from '@/components/dashboard/RecentActivities'
+import { 
+  getUserProfile, 
+  getStravaActivities, 
+  getActiveTrainingPlan, 
+  getActiveNutritionPlan,
+  getUpcomingEvents,
+  getWeeklyStats,
+  UserProfile,
+  StravaActivity,
+  TrainingPlan,
+  NutritionPlan,
+  CalendarEvent
+} from '@/lib/database'
+import { Activity, Calendar, Target, TrendingUp, User, Settings } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 
 interface User {
   id: string
@@ -34,6 +53,43 @@ const Dashboard: React.FC = () => {
 
     loadUser()
   }, [])
+
+  // Queries para carregar dados do dashboard
+  const { data: profile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: () => getUserProfile(user!.id),
+    enabled: !!user?.id
+  })
+
+  const { data: activities = [] } = useQuery({
+    queryKey: ['strava-activities', user?.id],
+    queryFn: () => getStravaActivities(user!.id, 10),
+    enabled: !!user?.id
+  })
+
+  const { data: trainingPlan } = useQuery({
+    queryKey: ['training-plan', user?.id],
+    queryFn: () => getActiveTrainingPlan(user!.id),
+    enabled: !!user?.id
+  })
+
+  const { data: nutritionPlan } = useQuery({
+    queryKey: ['nutrition-plan', user?.id],
+    queryFn: () => getActiveNutritionPlan(user!.id),
+    enabled: !!user?.id
+  })
+
+  const { data: upcomingEvents = [] } = useQuery({
+    queryKey: ['upcoming-events', user?.id],
+    queryFn: () => getUpcomingEvents(user!.id, 7),
+    enabled: !!user?.id
+  })
+
+  const { data: weeklyStats } = useQuery({
+    queryKey: ['weekly-stats', user?.id],
+    queryFn: () => getWeeklyStats(user!.id),
+    enabled: !!user?.id
+  })
 
   const handleSignOut = async () => {
     try {
@@ -89,147 +145,86 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <header className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Bem-vindo, {user?.user_metadata?.name || 'Usuário'}!
+              Olá, {profile?.name || user?.user_metadata?.name || 'Atleta'}! 👋
             </h1>
             <p className="text-gray-600 mt-1">
-              Dashboard da TrainerAI - Sua plataforma de automação de treinos
+              Dashboard TrainerAI - Sua central de performance e treinamento
             </p>
           </div>
-          <Button
-            onClick={handleSignOut}
-            variant="outline"
-            className="border-primary text-primary hover:bg-primary hover:text-white"
-          >
-            Sair
-          </Button>
+          <div className="flex items-center space-x-4">
+            <Button
+              onClick={() => navigate('/configuracoes')}
+              variant="outline"
+              size="sm"
+              className="border-primary text-primary hover:bg-primary hover:text-white"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Configurações
+            </Button>
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary hover:text-white"
+            >
+              Sair
+            </Button>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center mr-3">
-                  <svg
-                    className="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                    />
-                  </svg>
-                </div>
-                Perfil
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-2">
-                <strong>Email:</strong> {user?.email}
-              </p>
-              <p className="text-sm text-gray-600 mb-4">
-                <strong>ID:</strong> {user?.id}
-              </p>
-              <Button size="sm" variant="outline" className="w-full">
-                Editar Perfil
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center mr-3">
-                  <svg
-                    className="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                    />
-                  </svg>
-                </div>
-                Treinos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-gray-900 mb-2">12</p>
-              <p className="text-sm text-gray-600 mb-4">Treinos personalizados</p>
-              <Button size="sm" className="w-full bg-emerald-500 hover:bg-emerald-600">
-                Ver Treinos
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                  <svg
-                    className="w-4 h-4 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 10V3L4 14h7v7l9-11h-7z"
-                    />
-                  </svg>
-                </div>
-                IA Treinador
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                Seu assistente de treino personalizado está pronto!
-              </p>
-              <Button size="sm" className="w-full bg-blue-500 hover:bg-blue-600">
-                Conversar com IA
-              </Button>
-            </CardContent>
-          </Card>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatsCard
+            title="Treinos esta Semana"
+            value={weeklyStats?.totalWorkouts || 0}
+            subtitle="atividades registradas"
+            icon={Activity}
+            iconColor="text-emerald-500"
+          />
+          <StatsCard
+            title="Distância Total"
+            value={`${(weeklyStats?.totalDistance || 0).toFixed(1)} km`}
+            subtitle="nos últimos 7 dias"
+            icon={TrendingUp}
+            iconColor="text-blue-500"
+          />
+          <StatsCard
+            title="Calorias Queimadas"
+            value={Math.round(weeklyStats?.totalCalories || 0)}
+            subtitle="esta semana"
+            icon={Target}
+            iconColor="text-orange-500"
+          />
+          <StatsCard
+            title="Tempo Ativo"
+            value={`${Math.round((weeklyStats?.totalTime || 0) / 60)} min`}
+            subtitle="em movimento"
+            icon={Calendar}
+            iconColor="text-purple-500"
+          />
         </div>
 
-        <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm mt-6">
-          <CardHeader>
-            <CardTitle>Estatísticas da Semana</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-primary">5</p>
-                <p className="text-sm text-gray-600">Treinos Concluídos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-emerald-500">287</p>
-                <p className="text-sm text-gray-600">Calorias Queimadas</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-500">45</p>
-                <p className="text-sm text-gray-600">Minutos Ativos</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-500">3</p>
-                <p className="text-sm text-gray-600">Recordes Batidos</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Planos Ativos */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Planos Ativos</h2>
+          <ActivePlans 
+            trainingPlan={trainingPlan}
+            nutritionPlan={nutritionPlan}
+          />
+        </div>
+
+        {/* Charts e Eventos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <PerformanceChart activities={activities} />
+          <UpcomingEvents events={upcomingEvents} />
+        </div>
+
+        {/* Atividades Recentes */}
+        <RecentActivities activities={activities} />
       </div>
     </div>
   )

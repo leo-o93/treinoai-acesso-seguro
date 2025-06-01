@@ -9,7 +9,360 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      ai_conversations: {
+        Row: {
+          content: string
+          context: Json | null
+          created_at: string
+          id: string
+          message_type: string
+          session_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          context?: Json | null
+          created_at?: string
+          id?: string
+          message_type: string
+          session_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          context?: Json | null
+          created_at?: string
+          id?: string
+          message_type?: string
+          session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      calendar_events: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_time: string
+          event_type: string
+          google_event_id: string | null
+          id: string
+          location: string | null
+          start_time: string
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_time: string
+          event_type: string
+          google_event_id?: string | null
+          id?: string
+          location?: string | null
+          start_time: string
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_time?: string
+          event_type?: string
+          google_event_id?: string | null
+          id?: string
+          location?: string | null
+          start_time?: string
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      nutrition_plans: {
+        Row: {
+          created_at: string
+          created_by_ai: boolean | null
+          daily_calories: number | null
+          description: string | null
+          id: string
+          macros: Json | null
+          meal_plan: Json
+          restrictions: string[] | null
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_ai?: boolean | null
+          daily_calories?: number | null
+          description?: string | null
+          id?: string
+          macros?: Json | null
+          meal_plan: Json
+          restrictions?: string[] | null
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_ai?: boolean | null
+          daily_calories?: number | null
+          description?: string | null
+          id?: string
+          macros?: Json | null
+          meal_plan?: Json
+          restrictions?: string[] | null
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      strava_activities: {
+        Row: {
+          achievement_count: number | null
+          average_heartrate: number | null
+          average_speed: number | null
+          calories: number | null
+          created_at: string
+          distance: number | null
+          elapsed_time: number | null
+          id: string
+          kudos_count: number | null
+          max_heartrate: number | null
+          max_speed: number | null
+          moving_time: number | null
+          name: string
+          start_date: string
+          strava_activity_id: string
+          total_elevation_gain: number | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          achievement_count?: number | null
+          average_heartrate?: number | null
+          average_speed?: number | null
+          calories?: number | null
+          created_at?: string
+          distance?: number | null
+          elapsed_time?: number | null
+          id?: string
+          kudos_count?: number | null
+          max_heartrate?: number | null
+          max_speed?: number | null
+          moving_time?: number | null
+          name: string
+          start_date: string
+          strava_activity_id: string
+          total_elevation_gain?: number | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          achievement_count?: number | null
+          average_heartrate?: number | null
+          average_speed?: number | null
+          calories?: number | null
+          created_at?: string
+          distance?: number | null
+          elapsed_time?: number | null
+          id?: string
+          kudos_count?: number | null
+          max_heartrate?: number | null
+          max_speed?: number | null
+          moving_time?: number | null
+          name?: string
+          start_date?: string
+          strava_activity_id?: string
+          total_elevation_gain?: number | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      training_plans: {
+        Row: {
+          created_at: string
+          created_by_ai: boolean | null
+          description: string | null
+          difficulty_level: string | null
+          duration_weeks: number | null
+          id: string
+          plan_data: Json
+          status: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_ai?: boolean | null
+          description?: string | null
+          difficulty_level?: string | null
+          duration_weeks?: number | null
+          id?: string
+          plan_data: Json
+          status?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_ai?: boolean | null
+          description?: string | null
+          difficulty_level?: string | null
+          duration_weeks?: number | null
+          id?: string
+          plan_data?: Json
+          status?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_goals: {
+        Row: {
+          created_at: string
+          current_value: number | null
+          goal_type: string
+          id: string
+          status: string | null
+          target_date: string | null
+          target_value: number | null
+          unit: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_value?: number | null
+          goal_type: string
+          id?: string
+          status?: string | null
+          target_date?: string | null
+          target_value?: number | null
+          unit: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_value?: number | null
+          goal_type?: string
+          id?: string
+          status?: string | null
+          target_date?: string | null
+          target_value?: number | null
+          unit?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          age: number | null
+          created_at: string
+          deadline: string | null
+          experience_level: string | null
+          food_preferences: string[] | null
+          height: number | null
+          id: string
+          name: string | null
+          objective: string | null
+          restrictions: string[] | null
+          strava_athlete_id: string | null
+          strava_connected: boolean | null
+          training_frequency: number | null
+          updated_at: string
+          user_id: string
+          weight: number | null
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          deadline?: string | null
+          experience_level?: string | null
+          food_preferences?: string[] | null
+          height?: number | null
+          id?: string
+          name?: string | null
+          objective?: string | null
+          restrictions?: string[] | null
+          strava_athlete_id?: string | null
+          strava_connected?: boolean | null
+          training_frequency?: number | null
+          updated_at?: string
+          user_id: string
+          weight?: number | null
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          deadline?: string | null
+          experience_level?: string | null
+          food_preferences?: string[] | null
+          height?: number | null
+          id?: string
+          name?: string | null
+          objective?: string | null
+          restrictions?: string[] | null
+          strava_athlete_id?: string | null
+          strava_connected?: boolean | null
+          training_frequency?: number | null
+          updated_at?: string
+          user_id?: string
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload: Json
+          processed: boolean | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload: Json
+          processed?: boolean | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed?: boolean | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
