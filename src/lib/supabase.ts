@@ -42,6 +42,16 @@ export const signInWithGoogle = async () => {
   console.log('Origin detectado:', currentOrigin)
   console.log('URL de redirecionamento:', redirectUrl)
   console.log('URL atual:', window.location.href)
+  console.log('User-Agent:', navigator.userAgent)
+  console.log('Timestamp:', new Date().toISOString())
+  
+  // Verificar se já existe uma sessão antes de tentar OAuth
+  const { data: { session: existingSession } } = await supabase.auth.getSession()
+  if (existingSession) {
+    console.log('=== SESSÃO EXISTENTE DETECTADA ===')
+    console.log('Usuário já está logado:', existingSession.user?.email)
+    return { data: null, error: { message: 'Usuário já está autenticado' } }
+  }
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -59,6 +69,7 @@ export const signInWithGoogle = async () => {
     console.error('Erro completo:', error)
     console.error('Message:', error.message)
     console.error('Status:', error.status)
+    console.error('Timestamp do erro:', new Date().toISOString())
     
     // Log configurações necessárias
     console.log('=== CONFIGURAÇÕES NECESSÁRIAS ===')
@@ -66,9 +77,20 @@ export const signInWithGoogle = async () => {
     console.log('Google Cloud Console - Authorized redirect URIs: https://shhkccidqvvrwgxlyvqq.supabase.co/auth/v1/callback')
     console.log('Supabase Site URL:', currentOrigin)
     console.log('Supabase Redirect URLs:', `${currentOrigin}/**`)
+    
+    // Análise detalhada do erro
+    if (error.message?.includes('unauthorized_client')) {
+      console.error('DIAGNÓSTICO: Client ID não autorizado ou URLs não configuradas')
+    } else if (error.message?.includes('redirect_uri_mismatch')) {
+      console.error('DIAGNÓSTICO: URL de redirecionamento não corresponde às configurações')
+    } else if (error.message?.includes('invalid_request')) {
+      console.error('DIAGNÓSTICO: Parâmetros da requisição inválidos')
+    }
   } else {
     console.log('=== OAUTH INICIADO COM SUCESSO ===')
-    console.log('Data:', data)
+    console.log('Data retornada:', data)
+    console.log('URL de redirecionamento que será usada:', data?.url)
+    console.log('Provider:', data?.provider)
     console.log('Redirecionando para Google...')
   }
   

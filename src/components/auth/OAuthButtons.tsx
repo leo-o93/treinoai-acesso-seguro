@@ -14,6 +14,8 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
       console.log('=== INÍCIO DO LOGIN GOOGLE ===')
       console.log('URL da aplicação:', window.location.href)
       console.log('Origin atual:', window.location.origin)
+      console.log('Timestamp:', new Date().toISOString())
+      console.log('Botão disabled:', disabled)
       
       const { data, error } = await signInWithGoogle()
       
@@ -26,12 +28,18 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
         if (error.message?.includes('unauthorized_client')) {
           errorMessage = 'Configuração OAuth incorreta. Verifique as URLs autorizadas no Google Cloud Console.'
         } else if (error.message?.includes('redirect_uri_mismatch')) {
-          errorMessage = 'URL de redirecionamento não autorizada. Verifique as configurações.'
+          errorMessage = 'URL de redirecionamento não autorizada. Verifique as configurações no Google Cloud Console.'
         } else if (error.message?.includes('access_denied')) {
           errorMessage = 'Acesso negado pelo usuário.'
+        } else if (error.message?.includes('invalid_request')) {
+          errorMessage = 'Requisição inválida. Verifique as configurações do OAuth.'
+        } else if (error.message?.includes('Usuário já está autenticado')) {
+          errorMessage = 'Você já está logado.'
         } else if (error.message) {
           errorMessage = error.message
         }
+        
+        console.error('Mensagem de erro para o usuário:', errorMessage)
         
         toast({
           title: 'Erro ao fazer login com Google',
@@ -43,6 +51,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
 
       console.log('=== SUCESSO - REDIRECIONANDO PARA GOOGLE ===')
       console.log('Data do Supabase:', data)
+      console.log('URL para redirecionamento:', data?.url)
       
       // Mostrar feedback ao usuário
       toast({
@@ -50,9 +59,15 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
         description: 'Você será redirecionado para o Google.',
       })
       
+      // Log adicional para debug
+      console.log('=== PROCESSO DE REDIRECIONAMENTO ===')
+      console.log('window.location será alterado para:', data?.url)
+      
     } catch (error) {
       console.error('=== ERRO INESPERADO ===')
       console.error('Erro capturado:', error)
+      console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A')
+      console.error('Timestamp do erro:', new Date().toISOString())
       
       toast({
         title: 'Erro inesperado',
