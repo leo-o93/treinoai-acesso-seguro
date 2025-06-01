@@ -190,11 +190,26 @@ export const useAuth = () => {
     }
   }, [navigate])
 
+  const signOut = async () => {
+    console.log('=== INICIANDO SIGN OUT ===')
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        console.error('Erro ao fazer logout:', error)
+        throw error
+      }
+      console.log('=== SIGN OUT REALIZADO COM SUCESSO ===')
+      navigate('/login', { replace: true })
+    } catch (error) {
+      console.error('Erro durante signOut:', error)
+    }
+  }
+
   // Log de debug para estado atual
   console.log('=== ESTADO ATUAL useAuth ===')
   console.log('Loading:', loading)
   console.log('User:', user ? user.email : 'não autenticado')
   console.log('Session:', session ? 'ativa' : 'inativa')
 
-  return { user, session, loading }
+  return { user, session, loading, signOut }
 }

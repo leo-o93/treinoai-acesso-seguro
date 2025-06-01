@@ -62,7 +62,18 @@ const PlanoAtual: React.FC = () => {
       if (error) throw error
 
       if (data) {
-        setPlanoAtual(data)
+        // Parse the JSON data safely
+        const parsedData = {
+          id: data.id,
+          plan_type: data.plan_type,
+          created_at: data.created_at || new Date().toISOString(),
+          status: data.status || 'active',
+          plan_data: typeof data.plan_data === 'string' 
+            ? JSON.parse(data.plan_data) 
+            : data.plan_data || { items: [], created_at: new Date().toISOString(), objetivo: '' }
+        } as PlanoSemanal
+        
+        setPlanoAtual(parsedData)
       }
     } catch (error) {
       console.error('Erro ao carregar plano:', error)
@@ -117,10 +128,10 @@ const PlanoAtual: React.FC = () => {
             }
           }
 
-          // Salvar no banco
+          // Salvar no banco - converting to proper JSON format
           await supabase
             .from('training_plans_history')
-            .update({ plan_data: updatedPlan.plan_data })
+            .update({ plan_data: updatedPlan.plan_data as any })
             .eq('id', planoAtual.id)
 
           setPlanoAtual(updatedPlan)
@@ -170,7 +181,7 @@ const PlanoAtual: React.FC = () => {
           // Salvar no banco
           await supabase
             .from('training_plans_history')
-            .update({ plan_data: updatedPlan.plan_data })
+            .update({ plan_data: updatedPlan.plan_data as any })
             .eq('id', planoAtual.id)
 
           setPlanoAtual(updatedPlan)
@@ -241,14 +252,14 @@ const PlanoAtual: React.FC = () => {
     )
   }
 
-  const itensAgrupados = agruparPorDia(planoAtual.plan_data.items)
+  const itensAgrupados = agruparPorDia(planoAtual.plan_data.items || [])
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Meu Plano Semanal</h1>
         <div className="flex items-center gap-4 text-gray-600">
-          <span>Objetivo: {planoAtual.plan_data.objetivo}</span>
+          <span>Objetivo: {planoAtual.plan_data.objetivo || 'Não especificado'}</span>
           <span>•</span>
           <span>Criado em: {format(new Date(planoAtual.created_at), 'dd/MM/yyyy', { locale: ptBR })}</span>
         </div>

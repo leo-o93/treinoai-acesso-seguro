@@ -55,7 +55,14 @@ const ChatTrainer: React.FC = () => {
       if (error) throw error
 
       if (data) {
-        setMessages(data)
+        const formattedMessages: ChatMessage[] = data.map(item => ({
+          id: item.id,
+          message: item.message,
+          response: item.response || undefined,
+          message_type: item.message_type as 'user' | 'ai',
+          created_at: item.created_at || new Date().toISOString()
+        }))
+        setMessages(formattedMessages)
       }
     } catch (error) {
       console.error('Erro ao carregar histórico:', error)

@@ -24,7 +24,7 @@ export const getUserProfile = async (userId: string) => {
   return data
 }
 
-export const upsertUserProfile = async (profile: Partial<UserProfile>) => {
+export const upsertUserProfile = async (profile: Omit<UserProfile, 'id' | 'created_at' | 'updated_at'> & { user_id: string }) => {
   const { data, error } = await supabase
     .from('user_profiles')
     .upsert(profile)
@@ -201,7 +201,10 @@ export const getStravaToken = async (userId: string) => {
   return data
 }
 
-export const upsertStravaToken = async (token: Partial<StravaToken>) => {
+export const upsertStravaToken = async (token: Omit<StravaToken, 'id' | 'created_at' | 'updated_at'> & { 
+  user_id: string
+  access_token: string 
+}) => {
   const { data, error } = await supabase
     .from('strava_tokens')
     .upsert(token)
