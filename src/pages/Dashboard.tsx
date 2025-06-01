@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
@@ -38,6 +37,8 @@ import CustomizableDashboard from '@/components/dashboard/CustomizableDashboard'
 import GoogleCalendarIntegration from '@/components/dashboard/GoogleCalendarIntegration'
 import N8nApiIntegration from '@/components/dashboard/N8nApiIntegration'
 import AdvancedStravaAnalytics from '@/components/dashboard/AdvancedStravaAnalytics'
+import AIToolsMonitor from '@/components/dashboard/AIToolsMonitor'
+import WebhookMonitor from '@/components/dashboard/WebhookMonitor'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -52,7 +53,7 @@ const Dashboard: React.FC = () => {
 
   const { data: activities = [] } = useQuery({
     queryKey: ['strava-activities', user?.id],
-    queryFn: () => getStravaActivities(user!.id, 50), // Increased limit for advanced analysis
+    queryFn: () => getStravaActivities(user!.id, 50),
     enabled: !!user?.id
   })
 
@@ -70,7 +71,7 @@ const Dashboard: React.FC = () => {
 
   const { data: upcomingEvents = [] } = useQuery({
     queryKey: ['upcoming-events', user?.id],
-    queryFn: () => getUpcomingEvents(user!.id, 30), // Extended range for calendar
+    queryFn: () => getUpcomingEvents(user!.id, 30),
     enabled: !!user?.id
   })
 
@@ -116,7 +117,7 @@ const Dashboard: React.FC = () => {
               Olá, {profile?.name || user?.user_metadata?.name || 'Atleta'}! 👋
             </h1>
             <p className="text-gray-600 mt-1">
-              Dashboard TrainerAI - Sua central de performance e treinamento
+              Dashboard TrainerAI - Monitoramento Passivo de IA
             </p>
           </div>
           <div className="flex items-center space-x-4">
@@ -182,10 +183,21 @@ const Dashboard: React.FC = () => {
           <TrainerAIStats />
         </div>
 
-        {/* Fase 4 - Integrações Completas */}
+        {/* Monitoramento de Webhooks e Ferramentas IA */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+          <WebhookMonitor />
+          <AIToolsMonitor />
+        </div>
+
+        {/* Integrações Passivas */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
           <GoogleCalendarIntegration />
           <N8nApiIntegration />
+        </div>
+
+        {/* TrainerAI Messages - Destaque para mensagens do WhatsApp */}
+        <div className="mb-8">
+          <TrainerAIMessages />
         </div>
 
         {/* Análise Avançada do Strava */}
@@ -193,7 +205,6 @@ const Dashboard: React.FC = () => {
           <AdvancedStravaAnalytics />
         </div>
 
-        {/* Goal Summary & Notifications */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
           <div className="xl:col-span-2">
             <GoalSummary />
@@ -203,57 +214,42 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Sistema de Conquistas */}
         <div className="mb-8">
           <AchievementSystem />
         </div>
 
-        {/* Performance Insights */}
         <div className="mb-8">
           <PerformanceInsights />
         </div>
 
-        {/* Advanced Performance Analytics */}
         <div className="mb-8">
           <AdvancedPerformance activities={activities} />
         </div>
 
-        {/* Integrated Calendar */}
         <div className="mb-8">
           <IntegratedCalendar events={upcomingEvents} />
         </div>
 
-        {/* Training and Nutrition Plans */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
           <DetailedTrainingPlan trainingPlan={trainingPlan} />
           <DetailedNutritionPlan nutritionPlan={nutritionPlan} />
         </div>
 
-        {/* AI Chat Interface */}
         <div className="mb-8">
           <AIChat />
         </div>
 
-        {/* User Data Panel */}
         <div className="mb-8">
           <UserDataPanel profile={profile} />
         </div>
 
-        {/* Legacy Components - Performance and Events */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <PerformanceChart activities={activities} />
           <UpcomingEvents events={upcomingEvents} />
         </div>
 
-        {/* TrainerAI Messages */}
-        <div className="mb-8">
-          <TrainerAIMessages />
-        </div>
-
-        {/* Recent Activities */}
         <RecentActivities activities={activities} />
 
-        {/* Sistema de Realtime Updates */}
         <RealtimeUpdates />
       </div>
     </div>
