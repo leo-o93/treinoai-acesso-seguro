@@ -35,13 +35,17 @@ export const resetPassword = async (email: string) => {
 }
 
 export const signInWithGoogle = async () => {
+  const currentOrigin = window.location.origin
+  const redirectUrl = `${currentOrigin}/dashboard`
+  
   console.log('Configurando login com Google...')
-  console.log('Origin atual:', window.location.origin)
+  console.log('Origin detectado:', currentOrigin)
+  console.log('URL de redirecionamento:', redirectUrl)
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/dashboard`,
+      redirectTo: redirectUrl,
       queryParams: {
         access_type: 'offline',
         prompt: 'select_account',
@@ -49,7 +53,17 @@ export const signInWithGoogle = async () => {
     },
   })
   
-  console.log('Resultado do signInWithOAuth:', { data, error })
+  if (error) {
+    console.error('Erro detalhado do Supabase:', {
+      message: error.message,
+      status: error.status,
+      details: error
+    })
+  } else {
+    console.log('Redirecionamento para Google iniciado com sucesso')
+    console.log('Data retornada:', data)
+  }
+  
   return { data, error }
 }
 

@@ -9,28 +9,47 @@ export const useAuth = () => {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    console.log('useAuth: Configurando listener de autenticação')
+    console.log('=== INICIANDO useAuth ===')
+    console.log('URL atual no useAuth:', window.location.href)
     
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('useAuth: Evento de autenticação:', event, session?.user?.email)
+        console.log('=== EVENTO DE AUTENTICAÇÃO ===')
+        console.log('Evento:', event)
+        console.log('Sessão:', session ? {
+          user_id: session.user?.id,
+          email: session.user?.email,
+          provider: session.user?.app_metadata?.provider
+        } : null)
+        
         setSession(session)
         setUser(session?.user ?? null)
         setLoading(false)
+        
+        // Se o usuário fez login via OAuth, pode estar vindo de redirecionamento
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('Login detectado, usuário autenticado:', session.user.email)
+        }
       }
     )
 
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('useAuth: Sessão inicial:', session?.user?.email)
+      console.log('=== SESSÃO INICIAL ===')
+      console.log('Sessão encontrada:', session ? {
+        user_id: session.user?.id,
+        email: session.user?.email,
+        provider: session.user?.app_metadata?.provider
+      } : 'Nenhuma sessão ativa')
+      
       setSession(session)
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
     return () => {
-      console.log('useAuth: Removendo listener de autenticação')
+      console.log('=== REMOVENDO LISTENER useAuth ===')
       subscription.unsubscribe()
     }
   }, [])

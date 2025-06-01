@@ -11,31 +11,47 @@ interface OAuthButtonsProps {
 const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
   const handleGoogleSignIn = async () => {
     try {
-      console.log('Clique no botão Google detectado')
-      console.log('URL atual:', window.location.href)
+      console.log('=== INÍCIO DO LOGIN GOOGLE ===')
+      console.log('URL da aplicação:', window.location.href)
+      console.log('Origin atual:', window.location.origin)
       
       const { data, error } = await signInWithGoogle()
       
       if (error) {
-        console.error('Erro detalhado do Supabase:', error)
+        console.error('=== ERRO NO LOGIN GOOGLE ===')
+        console.error('Erro completo:', error)
+        
+        let errorMessage = 'Erro desconhecido ao conectar com o Google.'
+        
+        if (error.message?.includes('unauthorized_client')) {
+          errorMessage = 'Configuração OAuth incorreta. Verifique as URLs autorizadas no Google Cloud Console.'
+        } else if (error.message?.includes('redirect_uri_mismatch')) {
+          errorMessage = 'URL de redirecionamento não autorizada. Verifique as configurações no Supabase e Google Cloud Console.'
+        } else if (error.message) {
+          errorMessage = error.message
+        }
+        
         toast({
           title: 'Erro ao fazer login com Google',
-          description: `Erro: ${error.message}. Verifique as configurações do OAuth.`,
+          description: errorMessage,
           variant: 'destructive',
         })
         return
       }
 
-      console.log('Login Google iniciado com sucesso:', data)
+      console.log('=== SUCESSO - REDIRECIONANDO ===')
+      console.log('Data do Supabase:', data)
       
-      // O Supabase irá redirecionar automaticamente para o Google
-      // Não precisamos fazer nada mais aqui
+      // O Supabase irá automaticamente redirecionar para o Google
+      // Se chegamos aqui, o processo foi iniciado com sucesso
       
     } catch (error) {
-      console.error('Erro inesperado no handleGoogleSignIn:', error)
+      console.error('=== ERRO INESPERADO ===')
+      console.error('Erro capturado:', error)
+      
       toast({
         title: 'Erro inesperado',
-        description: 'Ocorreu um erro ao tentar conectar com o Google. Tente novamente.',
+        description: 'Falha na comunicação com o servidor de autenticação. Tente novamente.',
         variant: 'destructive',
       })
     }
