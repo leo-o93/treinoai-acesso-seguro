@@ -30,38 +30,79 @@ interface UserProfile {
 }
 
 const Perfil: React.FC = () => {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
   const navigate = useNavigate()
   const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [profile, setProfile] = useState<UserProfile>({
-    user_id: user?.id || '',
+    user_id: '',
     alimentos_disponiveis: [],
     restricoes_alimentares: []
   })
 
+  // Debug logs
+  console.log('=== PERFIL DEBUG ===')
+  console.log('User:', user)
+  console.log('User ID:', user?.id)
+  console.log('Loading:', loading)
+  console.log('Profile user_id:', profile.user_id)
+
   useEffect(() => {
-    if (user?.id) {
+    // Aguardar o usuário ser carregado antes de tentar carregar o perfil
+    if (!loading && user?.id) {
+      console.log('=== CARREGANDO PERFIL ===')
+      console.log('User ID disponível:', user.id)
+      
+      // Atualizar o user_id no estado imediatamente
+      setProfile(prev => ({
+        ...prev,
+        user_id: user.id
+      }))
+      
       loadProfile()
     }
-  }, [user?.id])
+  }, [user?.id, loading])
 
   const loadProfile = async () => {
+    if (!user?.id) {
+      console.error('Tentativa de carregar perfil sem user_id')
+      return
+    }
+
     try {
+      console.log('=== BUSCANDO PERFIL NO BANCO ===')
+      console.log('Buscando perfil para user_id:', user.id)
+      
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .maybeSingle()
 
-      if (error) throw error
+      console.log('Resposta do banco:', { data, error })
+
+      if (error) {
+        console.error('Erro ao buscar perfil:', error)
+        throw error
+      }
 
       if (data) {
+        console.log('=== PERFIL ENCONTRADO ===')
+        console.log('Dados do perfil:', data)
+        
         setProfile({
           ...data,
+          user_id: user.id, // Garantir que sempre tenha o user_id correto
           alimentos_disponiveis: data.alimentos_disponiveis || [],
           restricoes_alimentares: data.restricoes_alimentares || []
         })
+      } else {
+        console.log('=== PERFIL NÃO ENCONTRADO - CRIANDO NOVO ===')
+        // Se não encontrou perfil, manter o estado inicial com user_id
+        setProfile(prev => ({
+          ...prev,
+          user_id: user.id
+        }))
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error)
@@ -74,20 +115,63 @@ const Perfil: React.FC = () => {
   }
 
   const handleSave = async () => {
-    if (!user?.id) return
+    console.log('=== INICIANDO SALVAMENTO ===')
+    
+    // Verificar se o usuário está autenticado
+    if (!user?.id) {
+      console.error('Usuário não autenticado ao tentar salvar')
+      toast({
+        title: 'Erro de Autenticação',
+        description: 'Você precisa estar logado para salvar o perfil',
+        variant: 'destructive'
+      })
+      return
+    }
 
-    setLoading(true)
+    // Verificar se o profile tem user_id
+    if (!profile.user_id) {
+      console.error('Profile sem user_id ao tentar salvar')
+      setProfile(prev => ({ ...prev, user_id: user.id }))
+      toast({
+        title: 'Erro',
+        description: 'Erro interno: user_id não encontrado. Tente novamente.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setSaving(true)
+    
     try {
-      const { error } = await supabase
+      console.log('=== DADOS PARA SALVAR ===')
+      console.log('User ID atual:', user.id)
+      console.log('Profile user_id:', profile.user_id)
+      console.log('Profile completo:', profile)
+
+      // Preparar dados para salvar (garantindo user_id)
+      const profileToSave = {
+        ...profile,
+        user_id: user.id, // Sempre usar o user.id atual
+        updated_at: new Date().toISOString()
+      }
+
+      console.log('Dados finais para salvar:', profileToSave)
+
+      const { data, error } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          ...profile,
-          updated_at: new Date().toISOString()
-        })
+        .upsert(profileToSave)
+        .select()
+        .single()
 
-      if (error) throw error
+      console.log('Resposta do upsert:', { data, error })
 
+      if (error) {
+        console.error('Erro no upsert:', error)
+        throw error
+      }
+
+      console.log('=== PERFIL SALVO COM SUCESSO ===')
+      
       toast({
         title: 'Sucesso!',
         description: 'Perfil salvo com sucesso',
@@ -95,17 +179,18 @@ const Perfil: React.FC = () => {
 
       // Verificar se o perfil está completo para redirecionar
       if (profile.objetivo && profile.peso && profile.altura && profile.frequencia_semanal) {
+        console.log('Perfil completo, redirecionando para dashboard')
         navigate('/dashboard')
       }
     } catch (error) {
       console.error('Erro ao salvar perfil:', error)
       toast({
         title: 'Erro',
-        description: 'Não foi possível salvar seu perfil',
+        description: `Não foi possível salvar seu perfil: ${error.message}`,
         variant: 'destructive'
       })
     }
-    setLoading(false)
+    setSaving(false)
   }
 
   const addAlimento = (alimento: string) => {
@@ -142,6 +227,32 @@ const Perfil: React.FC = () => {
 
   const isProfileComplete = profile.objetivo && profile.peso && profile.altura && profile.frequencia_semanal
 
+  // Mostrar loading enquanto carrega usuário
+  if (loading) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p>Carregando perfil...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Verificar se usuário está autenticado
+  if (!user) {
+    return (
+      <div className="container mx-auto p-6 max-w-4xl">
+        <div className="text-center">
+          <p className="text-red-600">Você precisa estar logado para acessar o perfil.</p>
+          <Button onClick={() => navigate('/login')} className="mt-4">
+            Fazer Login
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
@@ -153,6 +264,9 @@ const Perfil: React.FC = () => {
               <CheckCircle className="w-5 h-5 text-green-500" />
             )}
           </CardTitle>
+          <div className="text-sm text-gray-600">
+            Usuário: {user.email}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Informações Básicas */}
@@ -344,8 +458,8 @@ const Perfil: React.FC = () => {
 
           {/* Botões de Ação */}
           <div className="flex gap-4 pt-6">
-            <Button onClick={handleSave} disabled={loading} className="flex-1">
-              {loading ? 'Salvando...' : 'Salvar Perfil'}
+            <Button onClick={handleSave} disabled={saving} className="flex-1">
+              {saving ? 'Salvando...' : 'Salvar Perfil'}
             </Button>
             {isProfileComplete && (
               <Button variant="outline" onClick={() => navigate('/chat')} className="flex-1">
