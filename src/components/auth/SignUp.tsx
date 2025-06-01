@@ -9,7 +9,7 @@ import { toast } from '@/hooks/use-toast'
 import { signUp } from '@/lib/supabase'
 import AuthLayout from './AuthLayout'
 import OAuthButtons from './OAuthButtons'
-import { eye, eyeOff } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 
 const SignUp: React.FC = () => {
   const [name, setName] = useState('')
@@ -127,9 +127,9 @@ const SignUp: React.FC = () => {
               disabled={isLoading}
             >
               {showPassword ? (
-                <eyeOff className="h-4 w-4 text-gray-400" />
+                <EyeOff className="h-4 w-4 text-gray-400" />
               ) : (
-                <eye className="h-4 w-4 text-gray-400" />
+                <Eye className="h-4 w-4 text-gray-400" />
               )}
             </Button>
           </div>

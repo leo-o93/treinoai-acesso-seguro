@@ -4,14 +4,10 @@ import { Navigate } from 'react-router-dom'
 import { getCurrentSession } from '@/lib/supabase'
 import { toast } from '@/hooks/use-toast'
 
-interface WithAuthProps {
-  children: React.ReactNode
-}
-
 const withAuth = <P extends object>(
   WrappedComponent: React.ComponentType<P>
-): React.FC<P & WithAuthProps> => {
-  const AuthenticatedComponent: React.FC<P & WithAuthProps> = (props) => {
+): React.FC<P> => {
+  const AuthenticatedComponent: React.FC<P> = (props) => {
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
     const [isLoading, setIsLoading] = useState(true)
 
