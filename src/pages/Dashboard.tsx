@@ -1,8 +1,8 @@
 
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
-import { getCurrentUser, signOut } from '@/lib/supabase'
+import { signOut } from '@/lib/supabase'
 import { useNavigate } from 'react-router-dom'
 import withAuth from '@/components/auth/withAuth'
 import StatsCard from '@/components/dashboard/StatsCard'
@@ -10,49 +10,21 @@ import PerformanceChart from '@/components/dashboard/PerformanceChart'
 import UpcomingEvents from '@/components/dashboard/UpcomingEvents'
 import ActivePlans from '@/components/dashboard/ActivePlans'
 import RecentActivities from '@/components/dashboard/RecentActivities'
+import { useAuth } from '@/hooks/useAuth'
 import { 
   getUserProfile, 
   getStravaActivities, 
   getActiveTrainingPlan, 
   getActiveNutritionPlan,
   getUpcomingEvents,
-  getWeeklyStats,
-  UserProfile,
-  StravaActivity,
-  TrainingPlan,
-  NutritionPlan,
-  CalendarEvent
+  getWeeklyStats
 } from '@/lib/database'
-import { Activity, Calendar, Target, TrendingUp, User, Settings } from 'lucide-react'
+import { Activity, Calendar, Target, TrendingUp, Settings } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
-interface User {
-  id: string
-  email?: string
-  user_metadata?: {
-    name?: string
-  }
-}
-
 const Dashboard: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const { user } = useAuth()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const userData = await getCurrentUser()
-        setUser(userData)
-      } catch (error) {
-        console.error('Erro ao carregar usuário:', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    loadUser()
-  }, [])
 
   // Queries para carregar dados do dashboard
   const { data: profile } = useQuery({
@@ -115,32 +87,6 @@ const Dashboard: React.FC = () => {
         variant: 'destructive',
       })
     }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-emerald-100">
-        <div className="text-center">
-          <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-            <svg
-              className="w-7 h-7 text-white"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13 10V3L4 14h7v7l9-11h-7z"
-              />
-            </svg>
-          </div>
-          <p className="text-gray-600">Carregando dashboard...</p>
-        </div>
-      </div>
-    )
   }
 
   return (
