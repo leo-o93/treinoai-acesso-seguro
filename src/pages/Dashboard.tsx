@@ -33,6 +33,9 @@ import AchievementSystem from '@/components/dashboard/AchievementSystem'
 import MotivationalMessages from '@/components/dashboard/MotivationalMessages'
 import RealtimeUpdates from '@/components/dashboard/RealtimeUpdates'
 import PerformanceInsights from '@/components/dashboard/PerformanceInsights'
+import CustomizableDashboard from '@/components/dashboard/CustomizableDashboard'
+import GoogleCalendarIntegration from '@/components/dashboard/GoogleCalendarIntegration'
+import N8nApiIntegration from '@/components/dashboard/N8nApiIntegration'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -134,6 +137,11 @@ const Dashboard: React.FC = () => {
           </div>
         </header>
 
+        {/* Dashboard Personalizável */}
+        <div className="mb-8">
+          <CustomizableDashboard />
+        </div>
+
         {/* Mensagem Motivacional */}
         <div className="mb-8">
           <MotivationalMessages />
@@ -170,6 +178,17 @@ const Dashboard: React.FC = () => {
             iconColor="text-purple-500"
           />
           <TrainerAIStats />
+        </div>
+
+        {/* Fase 4 - Integrações Completas */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+          <GoogleCalendarIntegration />
+          <N8nApiIntegration />
+        </div>
+
+        {/* Análise Avançada do Strava */}
+        <div className="mb-8">
+          <AdvancedStravaAnalytics />
         </div>
 
         {/* Goal Summary & Notifications */}
