@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-webhook-key',
 }
 
 serve(async (req) => {
@@ -18,6 +18,93 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
+    const url = new URL(req.url)
+    
+    // Handle TrainerAI webhook
+    if (url.pathname.endsWith('/trainerai')) {
+      const authHeader = req.headers.get('x-webhook-key')
+      if (authHeader !== Deno.env.get('TRAINERAI_WEBHOOK_KEY')) {
+        console.error('Unauthorized TrainerAI webhook attempt')
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized' }),
+          { 
+            status: 401,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      const body = await req.json()
+      const { remoteJid, message, type, date_time } = body
+
+      console.log('TrainerAI webhook received:', { remoteJid, message, type, date_time })
+
+      if (!remoteJid || !message || !type || !date_time) {
+        console.error('Missing required fields in TrainerAI webhook')
+        return new Response(
+          JSON.stringify({ error: 'Missing required fields: remoteJid, message, type, date_time' }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      // Extract phone number from remoteJid
+      const phone = remoteJid.replace('@whatsapp.net', '').replace('@s.whatsapp.net', '')
+
+      // Log the webhook
+      await supabaseClient
+        .from('webhook_logs')
+        .insert({
+          source: 'trainerai_whatsapp',
+          event_type: 'message_received',
+          payload: body,
+          processed: false
+        })
+
+      // Save to ai_conversations
+      const { error: conversationError } = await supabaseClient
+        .from('ai_conversations')
+        .insert({
+          session_id: `whatsapp_${phone}`,
+          message_type: 'user',
+          content: message,
+          context: {
+            source: 'whatsapp',
+            phone,
+            remoteJid,
+            type,
+            date_time
+          }
+        })
+
+      if (conversationError) {
+        console.error('Error saving TrainerAI conversation:', conversationError)
+        return new Response(
+          JSON.stringify({ error: 'Failed to save conversation' }),
+          { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      // Mark webhook as processed
+      await supabaseClient
+        .from('webhook_logs')
+        .update({ processed: true })
+        .eq('source', 'trainerai_whatsapp')
+        .eq('event_type', 'message_received')
+
+      console.log('TrainerAI webhook processed successfully')
+      return new Response(
+        JSON.stringify({ received: true }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Handle existing webhook functionality
     const body = await req.json()
     const { source, eventType, data, userId } = body
 

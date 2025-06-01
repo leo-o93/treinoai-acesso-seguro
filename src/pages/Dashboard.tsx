@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
@@ -10,6 +9,8 @@ import PerformanceChart from '@/components/dashboard/PerformanceChart'
 import UpcomingEvents from '@/components/dashboard/UpcomingEvents'
 import ActivePlans from '@/components/dashboard/ActivePlans'
 import RecentActivities from '@/components/dashboard/RecentActivities'
+import TrainerAIMessages from '@/components/dashboard/TrainerAIMessages'
+import TrainerAIStats from '@/components/dashboard/TrainerAIStats'
 import { useAuth } from '@/hooks/useAuth'
 import { 
   getUserProfile, 
@@ -123,7 +124,7 @@ const Dashboard: React.FC = () => {
         </header>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <StatsCard
             title="Treinos esta Semana"
             value={weeklyStats?.totalWorkouts || 0}
@@ -152,6 +153,7 @@ const Dashboard: React.FC = () => {
             icon={Calendar}
             iconColor="text-purple-500"
           />
+          <TrainerAIStats />
         </div>
 
         {/* Planos Ativos */}
@@ -163,10 +165,15 @@ const Dashboard: React.FC = () => {
           />
         </div>
 
-        {/* Charts e Eventos */}
+        {/* Charts, Eventos e TrainerAI Messages */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <PerformanceChart activities={activities} />
           <UpcomingEvents events={upcomingEvents} />
+        </div>
+
+        {/* TrainerAI Messages */}
+        <div className="mb-8">
+          <TrainerAIMessages />
         </div>
 
         {/* Atividades Recentes */}

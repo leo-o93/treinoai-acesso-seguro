@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client'
 import { Tables } from '@/integrations/supabase/types'
 
@@ -105,4 +104,47 @@ export const getWeeklyStats = async (userId: string) => {
   }
 
   return stats
+}
+
+export const getTrainerAIMessages = async (limit = 50) => {
+  const { data, error } = await supabase
+    .from('ai_conversations')
+    .select('*')
+    .eq('message_type', 'user')
+    .like('session_id', 'whatsapp_%')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data
+}
+
+export const getTrainerAIStats = async () => {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  
+  const oneWeekAgo = new Date()
+  oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
+
+  const { data: todayData, error: todayError } = await supabase
+    .from('ai_conversations')
+    .select('id')
+    .eq('message_type', 'user')
+    .like('session_id', 'whatsapp_%')
+    .gte('created_at', today.toISOString())
+
+  const { data: weekData, error: weekError } = await supabase
+    .from('ai_conversations')
+    .select('id')
+    .eq('message_type', 'user')
+    .like('session_id', 'whatsapp_%')
+    .gte('created_at', oneWeekAgo.toISOString())
+
+  if (todayError) throw todayError
+  if (weekError) throw weekError
+
+  return {
+    todayMessages: todayData.length,
+    weekMessages: weekData.length
+  }
 }
