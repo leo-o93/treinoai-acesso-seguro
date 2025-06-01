@@ -21,12 +21,14 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
         console.error('=== ERRO NO LOGIN GOOGLE ===')
         console.error('Erro completo:', error)
         
-        let errorMessage = 'Erro desconhecido ao conectar com o Google.'
+        let errorMessage = 'Erro ao conectar com o Google.'
         
         if (error.message?.includes('unauthorized_client')) {
           errorMessage = 'Configuração OAuth incorreta. Verifique as URLs autorizadas no Google Cloud Console.'
         } else if (error.message?.includes('redirect_uri_mismatch')) {
-          errorMessage = 'URL de redirecionamento não autorizada. Verifique as configurações no Supabase e Google Cloud Console.'
+          errorMessage = 'URL de redirecionamento não autorizada. Verifique as configurações.'
+        } else if (error.message?.includes('access_denied')) {
+          errorMessage = 'Acesso negado pelo usuário.'
         } else if (error.message) {
           errorMessage = error.message
         }
@@ -39,11 +41,14 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
         return
       }
 
-      console.log('=== SUCESSO - REDIRECIONANDO ===')
+      console.log('=== SUCESSO - REDIRECIONANDO PARA GOOGLE ===')
       console.log('Data do Supabase:', data)
       
-      // O Supabase irá automaticamente redirecionar para o Google
-      // Se chegamos aqui, o processo foi iniciado com sucesso
+      // Mostrar feedback ao usuário
+      toast({
+        title: 'Redirecionando...',
+        description: 'Você será redirecionado para o Google.',
+      })
       
     } catch (error) {
       console.error('=== ERRO INESPERADO ===')
@@ -51,7 +56,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
       
       toast({
         title: 'Erro inesperado',
-        description: 'Falha na comunicação com o servidor de autenticação. Tente novamente.',
+        description: 'Falha na comunicação com o servidor de autenticação.',
         variant: 'destructive',
       })
     }

@@ -36,11 +36,12 @@ export const resetPassword = async (email: string) => {
 
 export const signInWithGoogle = async () => {
   const currentOrigin = window.location.origin
-  const redirectUrl = `${currentOrigin}/dashboard`
+  const redirectUrl = `${currentOrigin}/login`
   
-  console.log('Configurando login com Google...')
+  console.log('=== CONFIGURAÇÃO GOOGLE OAUTH ===')
   console.log('Origin detectado:', currentOrigin)
   console.log('URL de redirecionamento:', redirectUrl)
+  console.log('URL atual:', window.location.href)
   
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
@@ -54,14 +55,21 @@ export const signInWithGoogle = async () => {
   })
   
   if (error) {
-    console.error('Erro detalhado do Supabase:', {
-      message: error.message,
-      status: error.status,
-      details: error
-    })
+    console.error('=== ERRO GOOGLE OAUTH ===')
+    console.error('Erro completo:', error)
+    console.error('Message:', error.message)
+    console.error('Status:', error.status)
+    
+    // Log configurações necessárias
+    console.log('=== CONFIGURAÇÕES NECESSÁRIAS ===')
+    console.log('Google Cloud Console - Authorized JavaScript origins:', currentOrigin)
+    console.log('Google Cloud Console - Authorized redirect URIs: https://shhkccidqvvrwgxlyvqq.supabase.co/auth/v1/callback')
+    console.log('Supabase Site URL:', currentOrigin)
+    console.log('Supabase Redirect URLs:', `${currentOrigin}/**`)
   } else {
-    console.log('Redirecionamento para Google iniciado com sucesso')
-    console.log('Data retornada:', data)
+    console.log('=== OAUTH INICIADO COM SUCESSO ===')
+    console.log('Data:', data)
+    console.log('Redirecionando para Google...')
   }
   
   return { data, error }
