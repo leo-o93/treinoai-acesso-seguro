@@ -33,6 +33,21 @@ export const useAuth = () => {
       console.log('=== CALLBACK OAUTH DETECTADO ===')
       console.log('Processando callback OAuth...')
       
+      // Processar callback manualmente se necessário
+      if (hasFragmentParams) {
+        console.log('=== PROCESSANDO FRAGMENT PARAMS ===')
+        const hashParams = new URLSearchParams(fragment.substring(1))
+        console.log('Parâmetros do hash:', Object.fromEntries(hashParams.entries()))
+        
+        if (hashParams.has('access_token')) {
+          console.log('Access token encontrado no fragment')
+        }
+        if (hashParams.has('error')) {
+          console.error('Erro encontrado no fragment:', hashParams.get('error'))
+          console.error('Descrição do erro:', hashParams.get('error_description'))
+        }
+      }
+      
       // Se há erro nos parâmetros
       if (urlParams.has('error') || fragment.includes('error')) {
         console.error('=== ERRO NO CALLBACK OAUTH ===')
@@ -48,6 +63,7 @@ export const useAuth = () => {
         console.log('=== EVENTO DE AUTENTICAÇÃO ===')
         console.log('Evento:', event)
         console.log('URL no momento do evento:', window.location.href)
+        console.log('Timestamp:', new Date().toISOString())
         console.log('Sessão recebida:', session ? {
           user_id: session.user?.id,
           email: session.user?.email,
@@ -68,20 +84,20 @@ export const useAuth = () => {
           console.log('Provider:', session.user.app_metadata?.provider)
           console.log('Pathname atual:', window.location.pathname)
           
+          // Limpar URL de parâmetros OAuth antes de redirecionar
+          if (hasOAuthParams || hasFragmentParams) {
+            console.log('=== LIMPANDO PARÂMETROS OAUTH ===')
+            window.history.replaceState({}, document.title, '/login')
+          }
+          
           // Se estamos na página de login, redirecionar para dashboard
           if (window.location.pathname === '/login') {
             console.log('=== REDIRECIONANDO PARA DASHBOARD ===')
-            console.log('Limpando parâmetros OAuth da URL...')
-            
-            // Limpar parâmetros OAuth da URL antes de redirecionar
-            if (hasOAuthParams || hasFragmentParams) {
-              window.history.replaceState({}, document.title, '/login')
-            }
             
             setTimeout(() => {
               console.log('Executando redirecionamento para /dashboard')
               navigate('/dashboard', { replace: true })
-            }, 100)
+            }, 500) // Aumentar timeout para garantir que a sessão seja processada
           }
         }
         
@@ -100,50 +116,76 @@ export const useAuth = () => {
           console.log('Nova sessão após refresh:', session ? 'válida' : 'inválida')
         }
         
-        // Log para eventos de erro
-        if (event === 'SIGNED_OUT' && !session) {
+        // Log para eventos de erro ou problemas de autenticação
+        if (event === 'SIGNED_OUT' && !session && window.location.search.includes('error')) {
           console.log('=== POSSÍVEL ERRO DE AUTENTICAÇÃO ===')
-          console.log('Usuário foi deslogado, possivelmente devido a erro')
+          console.log('Usuário foi deslogado devido a erro de OAuth')
+          
+          // Limpar parâmetros de erro da URL
+          const cleanUrl = window.location.pathname
+          window.history.replaceState({}, document.title, cleanUrl)
         }
       }
     )
 
-    // Get initial session
+    // Get initial session com timeout mais longo
     console.log('=== VERIFICANDO SESSÃO INICIAL ===')
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      console.log('Resposta getSession:', { session: session ? 'presente' : 'ausente', error })
-      
-      if (error) {
-        console.error('=== ERRO AO OBTER SESSÃO INICIAL ===')
-        console.error('Erro:', error)
-      }
-      
-      if (session) {
-        console.log('=== SESSÃO INICIAL ENCONTRADA ===')
-        console.log('Sessão:', {
-          user_id: session.user?.id,
-          email: session.user?.email,
-          provider: session.user?.app_metadata?.provider,
-          expires_at: session.expires_at,
-          is_expired: session.expires_at ? new Date(session.expires_at * 1000) < new Date() : 'indefinido'
+    const checkSession = async () => {
+      try {
+        console.log('Chamando getSession...')
+        const { data: { session }, error } = await supabase.auth.getSession()
+        console.log('Resposta getSession:', { 
+          session: session ? 'presente' : 'ausente', 
+          error: error ? error.message : 'nenhum erro'
         })
-      } else {
-        console.log('=== NENHUMA SESSÃO INICIAL ENCONTRADA ===')
+        
+        if (error) {
+          console.error('=== ERRO AO OBTER SESSÃO INICIAL ===')
+          console.error('Erro:', error)
+        }
+        
+        if (session) {
+          console.log('=== SESSÃO INICIAL ENCONTRADA ===')
+          console.log('Sessão:', {
+            user_id: session.user?.id,
+            email: session.user?.email,
+            provider: session.user?.app_metadata?.provider,
+            expires_at: session.expires_at,
+            is_expired: session.expires_at ? new Date(session.expires_at * 1000) < new Date() : 'indefinido'
+          })
+        } else {
+          console.log('=== NENHUMA SESSÃO INICIAL ENCONTRADA ===')
+          
+          // Se há parâmetros OAuth mas não há sessão, algo deu errado
+          if (hasOAuthParams || hasFragmentParams) {
+            console.error('=== PROBLEMA NO CALLBACK ===')
+            console.error('Parâmetros OAuth presentes mas nenhuma sessão encontrada')
+            console.error('Isso indica que o callback OAuth não foi processado corretamente')
+          }
+        }
+        
+        setSession(session)
+        setUser(session?.user ?? null)
+        setLoading(false)
+        
+        // Se já tem sessão ativa e está na página de login, redirecionar
+        if (session?.user && window.location.pathname === '/login') {
+          console.log('=== USUÁRIO JÁ AUTENTICADO - REDIRECIONANDO ===')
+          navigate('/dashboard', { replace: true })
+        }
+      } catch (err) {
+        console.error('=== ERRO INESPERADO AO VERIFICAR SESSÃO ===')
+        console.error('Erro:', err)
+        setLoading(false)
       }
-      
-      setSession(session)
-      setUser(session?.user ?? null)
-      setLoading(false)
-      
-      // Se já tem sessão ativa e está na página de login, redirecionar
-      if (session?.user && window.location.pathname === '/login') {
-        console.log('=== USUÁRIO JÁ AUTENTICADO - REDIRECIONANDO ===')
-        navigate('/dashboard', { replace: true })
-      }
-    })
+    }
+    
+    // Aguardar um pouco antes de verificar a sessão para dar tempo do callback ser processado
+    const timeoutId = setTimeout(checkSession, 1000)
 
     return () => {
       console.log('=== REMOVENDO LISTENER useAuth ===')
+      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [navigate])

@@ -16,6 +16,10 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
       console.log('Origin atual:', window.location.origin)
       console.log('Timestamp:', new Date().toISOString())
       console.log('Botão disabled:', disabled)
+      console.log('LocalStorage antes do login:', {
+        'supabase.auth.token': localStorage.getItem('supabase.auth.token') ? 'presente' : 'ausente',
+        keys: Object.keys(localStorage).filter(key => key.includes('supabase'))
+      })
       
       const { data, error } = await signInWithGoogle()
       
@@ -35,6 +39,8 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
           errorMessage = 'Requisição inválida. Verifique as configurações do OAuth.'
         } else if (error.message?.includes('Usuário já está autenticado')) {
           errorMessage = 'Você já está logado.'
+        } else if (error.message?.includes('popup_blocked')) {
+          errorMessage = 'Popup bloqueado. Permita popups para este site.'
         } else if (error.message) {
           errorMessage = error.message
         }
@@ -53,7 +59,7 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
       console.log('Data do Supabase:', data)
       console.log('URL para redirecionamento:', data?.url)
       
-      // Mostrar feedback ao usuário
+      // Mostrar feedback ao usuário antes do redirecionamento
       toast({
         title: 'Redirecionando...',
         description: 'Você será redirecionado para o Google.',
@@ -62,12 +68,27 @@ const OAuthButtons: React.FC<OAuthButtonsProps> = ({ disabled = false }) => {
       // Log adicional para debug
       console.log('=== PROCESSO DE REDIRECIONAMENTO ===')
       console.log('window.location será alterado para:', data?.url)
+      console.log('Aguardando redirecionamento...')
+      
+      // Se por algum motivo o redirecionamento não acontecer automaticamente
+      if (data?.url) {
+        setTimeout(() => {
+          console.log('=== FALLBACK: REDIRECIONAMENTO MANUAL ===')
+          console.log('Redirecionamento automático não ocorreu, fazendo redirecionamento manual')
+          window.location.href = data.url
+        }, 3000) // 3 segundos de fallback
+      }
       
     } catch (error) {
       console.error('=== ERRO INESPERADO ===')
       console.error('Erro capturado:', error)
       console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A')
       console.error('Timestamp do erro:', new Date().toISOString())
+      console.error('Estado da página:', {
+        url: window.location.href,
+        readyState: document.readyState,
+        userAgent: navigator.userAgent
+      })
       
       toast({
         title: 'Erro inesperado',

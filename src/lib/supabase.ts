@@ -53,6 +53,7 @@ export const signInWithGoogle = async () => {
     return { data: null, error: { message: 'Usuário já está autenticado' } }
   }
   
+  // Configuração mais robusta para o OAuth
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -61,6 +62,7 @@ export const signInWithGoogle = async () => {
         access_type: 'offline',
         prompt: 'select_account',
       },
+      skipBrowserRedirect: false, // Garantir que o redirecionamento aconteça
     },
   })
   
@@ -81,10 +83,18 @@ export const signInWithGoogle = async () => {
     // Análise detalhada do erro
     if (error.message?.includes('unauthorized_client')) {
       console.error('DIAGNÓSTICO: Client ID não autorizado ou URLs não configuradas')
+      console.error('AÇÃO: Verificar Google Cloud Console - OAuth 2.0 Client IDs')
+      console.error('VERIFICAR: Authorized JavaScript origins deve incluir:', currentOrigin)
+      console.error('VERIFICAR: Authorized redirect URIs deve incluir: https://shhkccidqvvrwgxlyvqq.supabase.co/auth/v1/callback')
     } else if (error.message?.includes('redirect_uri_mismatch')) {
       console.error('DIAGNÓSTICO: URL de redirecionamento não corresponde às configurações')
+      console.error('AÇÃO: Verificar se a URL de callback está correta no Google Cloud Console')
     } else if (error.message?.includes('invalid_request')) {
       console.error('DIAGNÓSTICO: Parâmetros da requisição inválidos')
+      console.error('AÇÃO: Verificar configuração do Client ID no Supabase')
+    } else if (error.message?.includes('popup_blocked')) {
+      console.error('DIAGNÓSTICO: Popup bloqueado pelo navegador')
+      console.error('AÇÃO: Tentar novamente ou desabilitar bloqueador de popup')
     }
   } else {
     console.log('=== OAUTH INICIADO COM SUCESSO ===')
@@ -92,6 +102,23 @@ export const signInWithGoogle = async () => {
     console.log('URL de redirecionamento que será usada:', data?.url)
     console.log('Provider:', data?.provider)
     console.log('Redirecionando para Google...')
+    
+    // Verificar se a URL de redirecionamento está correta
+    if (data?.url) {
+      console.log('=== ANÁLISE DA URL DE REDIRECIONAMENTO ===')
+      try {
+        const redirectUrlObj = new URL(data.url)
+        console.log('Host de redirecionamento:', redirectUrlObj.host)
+        console.log('Path de redirecionamento:', redirectUrlObj.pathname)
+        console.log('Parâmetros de redirecionamento:', redirectUrlObj.searchParams.toString())
+        
+        if (!redirectUrlObj.host.includes('google') && !redirectUrlObj.host.includes('accounts')) {
+          console.warn('AVISO: URL de redirecionamento não parece ser do Google')
+        }
+      } catch (urlError) {
+        console.error('Erro ao analisar URL de redirecionamento:', urlError)
+      }
+    }
   }
   
   return { data, error }
