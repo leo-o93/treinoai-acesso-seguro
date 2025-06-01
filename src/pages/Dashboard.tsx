@@ -15,6 +15,10 @@ import GoalSummary from '@/components/dashboard/GoalSummary'
 import DetailedTrainingPlan from '@/components/dashboard/DetailedTrainingPlan'
 import DetailedNutritionPlan from '@/components/dashboard/DetailedNutritionPlan'
 import UserDataPanel from '@/components/dashboard/UserDataPanel'
+import IntegratedCalendar from '@/components/dashboard/IntegratedCalendar'
+import AdvancedPerformance from '@/components/dashboard/AdvancedPerformance'
+import AIChat from '@/components/dashboard/AIChat'
+import NotificationCenter from '@/components/dashboard/NotificationCenter'
 import { useAuth } from '@/hooks/useAuth'
 import { 
   getUserProfile, 
@@ -24,7 +28,7 @@ import {
   getUpcomingEvents,
   getWeeklyStats
 } from '@/lib/database'
-import { Activity, Calendar, Target, TrendingUp, Settings } from 'lucide-react'
+import { Activity, Calendar, Target, TrendingUp, Settings, Bell, MessageSquare, BarChart3 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 
 const Dashboard: React.FC = () => {
@@ -40,7 +44,7 @@ const Dashboard: React.FC = () => {
 
   const { data: activities = [] } = useQuery({
     queryKey: ['strava-activities', user?.id],
-    queryFn: () => getStravaActivities(user!.id, 10),
+    queryFn: () => getStravaActivities(user!.id, 50), // Increased limit for advanced analysis
     enabled: !!user?.id
   })
 
@@ -58,7 +62,7 @@ const Dashboard: React.FC = () => {
 
   const { data: upcomingEvents = [] } = useQuery({
     queryKey: ['upcoming-events', user?.id],
-    queryFn: () => getUpcomingEvents(user!.id, 7),
+    queryFn: () => getUpcomingEvents(user!.id, 30), // Extended range for calendar
     enabled: !!user?.id
   })
 
@@ -127,7 +131,7 @@ const Dashboard: React.FC = () => {
           </div>
         </header>
 
-        {/* Stats Cards */}
+        {/* Quick Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <StatsCard
             title="Treinos esta Semana"
@@ -160,23 +164,43 @@ const Dashboard: React.FC = () => {
           <TrainerAIStats />
         </div>
 
-        {/* Resumo do Objetivo */}
-        <div className="mb-8">
-          <GoalSummary />
+        {/* Goal Summary & Notifications */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
+          <div className="xl:col-span-2">
+            <GoalSummary />
+          </div>
+          <div>
+            <NotificationCenter />
+          </div>
         </div>
 
-        {/* Planos Detalhados - Layout em Grid */}
+        {/* Advanced Performance Analytics */}
+        <div className="mb-8">
+          <AdvancedPerformance activities={activities} />
+        </div>
+
+        {/* Integrated Calendar */}
+        <div className="mb-8">
+          <IntegratedCalendar events={upcomingEvents} />
+        </div>
+
+        {/* Training and Nutrition Plans */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
           <DetailedTrainingPlan trainingPlan={trainingPlan} />
           <DetailedNutritionPlan nutritionPlan={nutritionPlan} />
         </div>
 
-        {/* Dados do Usuário */}
+        {/* AI Chat Interface */}
+        <div className="mb-8">
+          <AIChat />
+        </div>
+
+        {/* User Data Panel */}
         <div className="mb-8">
           <UserDataPanel profile={profile} />
         </div>
 
-        {/* Charts, Eventos e TrainerAI Messages */}
+        {/* Legacy Components - Performance and Events */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <PerformanceChart activities={activities} />
           <UpcomingEvents events={upcomingEvents} />
@@ -187,7 +211,7 @@ const Dashboard: React.FC = () => {
           <TrainerAIMessages />
         </div>
 
-        {/* Atividades Recentes */}
+        {/* Recent Activities */}
         <RecentActivities activities={activities} />
       </div>
     </div>
