@@ -1,3 +1,4 @@
+
 import React from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/hooks/use-toast'
@@ -7,10 +8,13 @@ import withAuth from '@/components/auth/withAuth'
 import StatsCard from '@/components/dashboard/StatsCard'
 import PerformanceChart from '@/components/dashboard/PerformanceChart'
 import UpcomingEvents from '@/components/dashboard/UpcomingEvents'
-import ActivePlans from '@/components/dashboard/ActivePlans'
 import RecentActivities from '@/components/dashboard/RecentActivities'
 import TrainerAIMessages from '@/components/dashboard/TrainerAIMessages'
 import TrainerAIStats from '@/components/dashboard/TrainerAIStats'
+import GoalSummary from '@/components/dashboard/GoalSummary'
+import DetailedTrainingPlan from '@/components/dashboard/DetailedTrainingPlan'
+import DetailedNutritionPlan from '@/components/dashboard/DetailedNutritionPlan'
+import UserDataPanel from '@/components/dashboard/UserDataPanel'
 import { useAuth } from '@/hooks/useAuth'
 import { 
   getUserProfile, 
@@ -156,13 +160,20 @@ const Dashboard: React.FC = () => {
           <TrainerAIStats />
         </div>
 
-        {/* Planos Ativos */}
+        {/* Resumo do Objetivo */}
         <div className="mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Planos Ativos</h2>
-          <ActivePlans 
-            trainingPlan={trainingPlan}
-            nutritionPlan={nutritionPlan}
-          />
+          <GoalSummary />
+        </div>
+
+        {/* Planos Detalhados - Layout em Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+          <DetailedTrainingPlan trainingPlan={trainingPlan} />
+          <DetailedNutritionPlan nutritionPlan={nutritionPlan} />
+        </div>
+
+        {/* Dados do Usuário */}
+        <div className="mb-8">
+          <UserDataPanel profile={profile} />
         </div>
 
         {/* Charts, Eventos e TrainerAI Messages */}
