@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const url = new URL(req.url)
     
-    // Handle TrainerAI webhook
+    // Handle TrainerAI webhook from n8n
     if (url.pathname.endsWith('/trainerai')) {
       const authHeader = req.headers.get('x-webhook-key')
       if (authHeader !== Deno.env.get('TRAINERAI_WEBHOOK_KEY')) {
@@ -35,14 +35,41 @@ serve(async (req) => {
       }
 
       const body = await req.json()
-      const { remoteJid, message, type, date_time } = body
+      console.log('TrainerAI webhook received - Full payload:', JSON.stringify(body, null, 2))
 
-      console.log('TrainerAI webhook received:', { remoteJid, message, type, date_time })
+      // Extract data based on n8n structure
+      // n8n typically sends data in different formats, let's handle multiple possibilities
+      let messageData;
+      
+      if (Array.isArray(body)) {
+        // If n8n sends an array of items
+        messageData = body[0] || body;
+      } else if (body.data) {
+        // If n8n wraps data in a 'data' property
+        messageData = body.data;
+      } else {
+        // Direct object
+        messageData = body;
+      }
 
-      if (!remoteJid || !message || !type || !date_time) {
-        console.error('Missing required fields in TrainerAI webhook')
+      console.log('Extracted message data:', JSON.stringify(messageData, null, 2))
+
+      // Try to extract WhatsApp message information
+      const remoteJid = messageData.remoteJid || messageData.from || messageData.phone || messageData.number;
+      const message = messageData.message || messageData.content || messageData.text || messageData.body;
+      const type = messageData.type || messageData.messageType || 'text';
+      const date_time = messageData.date_time || messageData.timestamp || messageData.time || new Date().toISOString();
+
+      console.log('Processed fields:', { remoteJid, message, type, date_time });
+
+      if (!remoteJid || !message) {
+        console.error('Missing required fields. Available fields:', Object.keys(messageData));
         return new Response(
-          JSON.stringify({ error: 'Missing required fields: remoteJid, message, type, date_time' }),
+          JSON.stringify({ 
+            error: 'Missing required fields: remoteJid/from/phone and message/content/text',
+            received_fields: Object.keys(messageData),
+            full_payload: messageData
+          }),
           { 
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -51,38 +78,60 @@ serve(async (req) => {
       }
 
       // Extract phone number from remoteJid
-      const phone = remoteJid.replace('@whatsapp.net', '').replace('@s.whatsapp.net', '')
+      const phone = remoteJid.replace('@whatsapp.net', '').replace('@s.whatsapp.net', '').replace('@c.us', '');
 
-      // Log the webhook
-      await supabaseClient
+      // Log the webhook with full context
+      const { data: logData, error: logError } = await supabaseClient
         .from('webhook_logs')
         .insert({
-          source: 'trainerai_whatsapp',
+          source: 'trainerai_whatsapp_n8n',
           event_type: 'message_received',
-          payload: body,
+          payload: {
+            original_payload: body,
+            processed_data: {
+              remoteJid,
+              message,
+              type,
+              date_time,
+              phone
+            }
+          },
           processed: false
         })
+        .select()
+
+      if (logError) {
+        console.error('Error logging webhook:', logError)
+      } else {
+        console.log('Webhook logged:', logData)
+      }
 
       // Save to ai_conversations
-      const { error: conversationError } = await supabaseClient
+      const { data: conversationData, error: conversationError } = await supabaseClient
         .from('ai_conversations')
         .insert({
           session_id: `whatsapp_${phone}`,
           message_type: 'user',
           content: message,
           context: {
-            source: 'whatsapp',
+            source: 'whatsapp_n8n',
             phone,
             remoteJid,
             type,
-            date_time
+            date_time,
+            n8n_webhook_id: url.pathname,
+            original_payload: messageData
           }
         })
+        .select()
 
       if (conversationError) {
         console.error('Error saving TrainerAI conversation:', conversationError)
         return new Response(
-          JSON.stringify({ error: 'Failed to save conversation' }),
+          JSON.stringify({ 
+            error: 'Failed to save conversation',
+            details: conversationError.message 
+          }),
           { 
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -91,16 +140,46 @@ serve(async (req) => {
       }
 
       // Mark webhook as processed
-      await supabaseClient
-        .from('webhook_logs')
-        .update({ processed: true })
-        .eq('source', 'trainerai_whatsapp')
-        .eq('event_type', 'message_received')
+      if (logData && logData[0]) {
+        await supabaseClient
+          .from('webhook_logs')
+          .update({ processed: true })
+          .eq('id', logData[0].id)
+      }
 
       console.log('TrainerAI webhook processed successfully')
+      
+      // Resposta estruturada para o n8n
+      const response = {
+        success: true,
+        message: 'Webhook processed successfully',
+        data: {
+          conversation_id: conversationData?.[0]?.id,
+          session_id: `whatsapp_${phone}`,
+          phone: phone,
+          processed_at: new Date().toISOString(),
+          message_content: message,
+          message_type: type
+        },
+        webhook_info: {
+          source: 'trainerai_whatsapp_n8n',
+          webhook_path: url.pathname,
+          processed_fields: {
+            remoteJid,
+            message,
+            type,
+            date_time,
+            phone
+          }
+        }
+      }
+
       return new Response(
-        JSON.stringify({ received: true }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify(response),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
       )
     }
 
@@ -159,7 +238,11 @@ serve(async (req) => {
   } catch (error) {
     console.error('Webhook processing error:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
+      }),
       { 
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
