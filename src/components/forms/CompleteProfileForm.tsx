@@ -22,9 +22,7 @@ const profileSchema = z.object({
   frequencia_semanal: z.number().min(1, 'Frequência semanal é obrigatória'),
   alimentos_disponiveis: z.array(z.string()).min(1, 'Pelo menos um alimento deve ser informado'),
   restricoes_alimentares: z.array(z.string()).optional(),
-  experience_level: z.string().min(1, 'Nível de experiência é obrigatório'),
-  hobby_activity: z.string().optional(),
-  hobby_frequency: z.number().optional()
+  experience_level: z.string().min(1, 'Nível de experiência é obrigatório')
 })
 
 type ProfileFormData = z.infer<typeof profileSchema>
@@ -57,9 +55,7 @@ const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
       frequencia_semanal: initialData?.frequencia_semanal || 0,
       alimentos_disponiveis: initialData?.alimentos_disponiveis || [],
       restricoes_alimentares: initialData?.restricoes_alimentares || [],
-      experience_level: initialData?.experience_level || '',
-      hobby_activity: initialData?.hobby_activity || '',
-      hobby_frequency: initialData?.hobby_frequency || 0
+      experience_level: initialData?.experience_level || ''
     }
   })
 
@@ -129,9 +125,6 @@ const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
             <p><strong>Idade:</strong> {formData.age} anos</p>
             <p><strong>Frequência semanal:</strong> {formData.frequencia_semanal}x por semana</p>
             <p><strong>Nível de experiência:</strong> {formData.experience_level}</p>
-            {formData.hobby_activity && (
-              <p><strong>Atividade como hobby:</strong> {formData.hobby_activity} ({formData.hobby_frequency}x por semana)</p>
-            )}
             <div>
               <strong>Alimentos disponíveis:</strong>
               <div className="flex flex-wrap gap-1 mt-1">
@@ -319,50 +312,6 @@ const CompleteProfileForm: React.FC<CompleteProfileFormProps> = ({
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Atividades como Hobby</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="hobby_activity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Atividade (opcional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        {...field} 
-                        placeholder="Ex: Academia, Futebol, Crossfit..."
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="hobby_frequency"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Frequência por semana</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value) || 0)}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
           </CardContent>
         </Card>
 
