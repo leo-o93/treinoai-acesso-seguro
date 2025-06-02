@@ -1,4 +1,3 @@
-
 // Sistema de comunicação com MCP (n8n)
 interface MCPCallParams {
   tool: string
@@ -114,6 +113,9 @@ export const mcpAI = {
   
   gerarPlanoCompleto: (request: any) =>
     mcpCall('AI-AGENT', 'gerar_plano_completo', request),
+  
+  gerarRecomendacoes: () =>
+    mcpCall('AI-AGENT', 'gerar_recomendacoes', {}),
   
   reavaliar: (feedback: string) =>
     mcpCall('AI-AGENT', 'reavaliar', { feedback })
