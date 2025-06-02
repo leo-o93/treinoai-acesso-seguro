@@ -37,11 +37,16 @@ const PlanRecommendations: React.FC = () => {
       if (!user?.id) return []
       
       const { data, error } = await supabase
-        .from('weekly_feedback' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .order('week_start', { ascending: false })
-        .limit(4)
+        .rpc('select_weekly_feedback', { user_id_param: user.id })
+        .catch(async () => {
+          // Fallback to direct query if RPC doesn't exist
+          return await supabase
+            .from('weekly_feedback' as any)
+            .select('*')
+            .eq('user_id', user.id)
+            .order('week_start', { ascending: false })
+            .limit(4)
+        })
       
       if (error) throw error
       return (data as any[]) as WeeklyFeedback[]
@@ -127,7 +132,7 @@ const PlanRecommendations: React.FC = () => {
 
     // Análise de feedback
     if (weeklyFeedbacks && weeklyFeedbacks.length > 0) {
-      const lastFeedback = weeklyFeedbacks[0]
+      const lastFeedback = weeklyFeedbacks[0] as WeeklyFeedback
       
       if (lastFeedback.energy_level <= 4) {
         recs.push({

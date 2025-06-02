@@ -46,15 +46,20 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
     queryFn: async (): Promise<WeeklyFeedback | null> => {
       if (!user?.id) return null
       
-      const { data, error } = await supabase
-        .from('weekly_feedback' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('week_start', currentWeekStart)
-        .maybeSingle()
-      
-      if (error && error.code !== 'PGRST116') throw error
-      return data ? (data as any) as WeeklyFeedback : null
+      try {
+        const { data, error } = await (supabase as any)
+          .from('weekly_feedback')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('week_start', currentWeekStart)
+          .maybeSingle()
+        
+        if (error && error.code !== 'PGRST116') throw error
+        return data ? data as WeeklyFeedback : null
+      } catch (error) {
+        console.error('Error fetching weekly feedback:', error)
+        return null
+      }
     },
     enabled: !!user?.id
   })
@@ -82,15 +87,20 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
     queryFn: async (): Promise<WeeklyFeedback[]> => {
       if (!user?.id) return []
       
-      const { data, error } = await supabase
-        .from('weekly_feedback' as any)
-        .select('*')
-        .eq('user_id', user.id)
-        .order('week_start', { ascending: false })
-        .limit(4)
-      
-      if (error) throw error
-      return (data as any[]) as WeeklyFeedback[]
+      try {
+        const { data, error } = await (supabase as any)
+          .from('weekly_feedback')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('week_start', { ascending: false })
+          .limit(4)
+        
+        if (error) throw error
+        return (data as any[]) as WeeklyFeedback[]
+      } catch (error) {
+        console.error('Error fetching previous feedbacks:', error)
+        return []
+      }
     },
     enabled: !!user?.id
   })
@@ -126,8 +136,8 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
         updated_at: new Date().toISOString()
       }
 
-      const { error } = await supabase
-        .from('weekly_feedback' as any)
+      const { error } = await (supabase as any)
+        .from('weekly_feedback')
         .upsert(finalData)
       
       if (error) throw error
