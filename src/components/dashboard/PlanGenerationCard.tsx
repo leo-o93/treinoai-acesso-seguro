@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Loader2, Dumbbell, Utensils, Calendar, CheckCircle } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useToast } from '@/hooks/use-toast'
-import { mcpAI, mcpAgendamento } from '@/lib/mcpClient'
+import { mcpAI } from '@/lib/mcpClient'
 
 interface PlanGenerationCardProps {
   userProfile: any
@@ -19,8 +19,7 @@ const PlanGenerationCard: React.FC<PlanGenerationCardProps> = ({
 }) => {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [generating, setGenerating] = useState(false)
-  const [step, setStep] = useState<'idle' | 'training' | 'nutrition' | 'calendar' | 'complete'>('idle')
+  const [requesting, setRequesting] = useState(false)
 
   const isProfileComplete = userProfile && 
     userProfile.objetivo && 
@@ -29,136 +28,50 @@ const PlanGenerationCard: React.FC<PlanGenerationCardProps> = ({
     userProfile.frequencia_semanal &&
     userProfile.alimentos_disponiveis?.length > 0
 
-  const generatePlans = async () => {
+  const requestPlans = async () => {
     if (!isProfileComplete || !user) {
       toast({
         title: 'Perfil incompleto',
-        description: 'Complete seu perfil primeiro para gerar os planos',
+        description: 'Complete seu perfil primeiro para solicitar os planos',
         variant: 'destructive'
       })
       return
     }
 
-    setGenerating(true)
-    setStep('training')
+    setRequesting(true)
 
     try {
-      // Step 1: Generate training plan
-      console.log('🏋️ Gerando plano de treino...')
-      const trainingResult = await mcpAI.gerarPlanoTreino(
-        userProfile.objetivo,
-        userProfile.peso,
-        userProfile.altura,
-        userProfile.frequencia_semanal
-      )
-
-      if (!trainingResult.success) {
-        throw new Error('Erro ao gerar plano de treino')
+      // Just send request to AI agent - don't generate locally
+      console.log('🤖 Solicitando planos ao agente IA...')
+      
+      const request = {
+        userId: user.id,
+        profile: userProfile,
+        requestType: 'complete_plans'
       }
 
-      setStep('nutrition')
+      // The AI agent in n8n will handle the actual generation
+      const result = await mcpAI.gerarPlanoCompleto(request)
 
-      // Step 2: Generate nutrition plan
-      console.log('🥗 Gerando plano de alimentação...')
-      const nutritionResult = await mcpAI.gerarPlanoDieta(
-        userProfile.objetivo,
-        userProfile.peso,
-        userProfile.altura,
-        userProfile.alimentos_disponiveis || [],
-        userProfile.restricoes_alimentares || []
-      )
-
-      if (!nutritionResult.success) {
-        throw new Error('Erro ao gerar plano de alimentação')
+      if (result.success) {
+        toast({
+          title: 'Solicitação enviada!',
+          description: 'O agente IA está preparando seus planos personalizados'
+        })
+        onPlansGenerated?.()
+      } else {
+        throw new Error('Erro na comunicação com agente IA')
       }
-
-      setStep('calendar')
-
-      // Step 3: Schedule in calendar
-      console.log('📅 Agendando no calendário...')
-      await scheduleTrainingPlan(trainingResult.data)
-      await scheduleNutritionPlan(nutritionResult.data)
-
-      setStep('complete')
-
-      toast({
-        title: 'Planos gerados com sucesso!',
-        description: 'Seus planos de treino e alimentação foram criados e agendados no calendário'
-      })
-
-      onPlansGenerated?.()
 
     } catch (error) {
-      console.error('Erro ao gerar planos:', error)
+      console.error('Erro ao solicitar planos:', error)
       toast({
-        title: 'Erro',
-        description: 'Não foi possível gerar os planos. Tente novamente.',
+        title: 'Erro na solicitação',
+        description: 'Não foi possível conectar com o agente IA. Tente novamente.',
         variant: 'destructive'
       })
     } finally {
-      setGenerating(false)
-      setTimeout(() => setStep('idle'), 3000)
-    }
-  }
-
-  const scheduleTrainingPlan = async (trainingPlan: any) => {
-    const workouts = trainingPlan?.workouts || []
-    
-    for (const workout of workouts.slice(0, 5)) { // Agenda próximos 5 treinos
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() + Math.floor(Math.random() * 14)) // Próximas 2 semanas
-      startDate.setHours(7, 0, 0, 0) // 7:00 AM por padrão
-      
-      const endDate = new Date(startDate)
-      endDate.setHours(8, 0, 0, 0) // 1 hora de duração
-      
-      try {
-        await mcpAgendamento.criarEvento(
-          workout.name || 'Treino',
-          workout.description || 'Treino personalizado gerado pelo TrainerAI',
-          startDate.toISOString(),
-          endDate.toISOString()
-        )
-      } catch (error) {
-        console.error('Erro ao agendar treino:', error)
-      }
-    }
-  }
-
-  const scheduleNutritionPlan = async (nutritionPlan: any) => {
-    const meals = nutritionPlan?.meals || []
-    
-    const mealTimes = [
-      { name: 'Café da manhã', hour: 8 },
-      { name: 'Lanche da manhã', hour: 10 },
-      { name: 'Almoço', hour: 12 },
-      { name: 'Lanche da tarde', hour: 15 },
-      { name: 'Jantar', hour: 19 },
-      { name: 'Ceia', hour: 21 }
-    ]
-
-    for (let day = 0; day < 7; day++) {
-      for (const [index, mealTime] of mealTimes.entries()) {
-        if (meals[index]) {
-          const startDate = new Date()
-          startDate.setDate(startDate.getDate() + day)
-          startDate.setHours(mealTime.hour, 0, 0, 0)
-          
-          const endDate = new Date(startDate)
-          endDate.setMinutes(30) // 30 minutos para refeição
-          
-          try {
-            await mcpAgendamento.criarEvento(
-              mealTime.name,
-              meals[index].description || `${mealTime.name} - Plano nutricional TrainerAI`,
-              startDate.toISOString(),
-              endDate.toISOString()
-            )
-          } catch (error) {
-            console.error('Erro ao agendar refeição:', error)
-          }
-        }
-      }
+      setRequesting(false)
     }
   }
 
@@ -168,14 +81,14 @@ const PlanGenerationCard: React.FC<PlanGenerationCardProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Dumbbell className="w-5 h-5 text-blue-500" />
-            Gerar Planos Personalizados
+            Solicitar Planos Personalizados
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
             <div className="text-gray-500 mb-4">
               <p className="font-medium mb-2">Complete seu perfil primeiro</p>
-              <p className="text-sm">Precisamos de algumas informações para criar seus planos personalizados:</p>
+              <p className="text-sm">Precisamos de algumas informações para seus planos personalizados:</p>
             </div>
             <div className="space-y-2 text-sm text-left max-w-md mx-auto">
               <div className="flex items-center gap-2">
@@ -213,7 +126,7 @@ const PlanGenerationCard: React.FC<PlanGenerationCardProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Dumbbell className="w-5 h-5 text-blue-500" />
-          Gerar Planos Personalizados
+          Solicitar Planos Personalizados
         </CardTitle>
       </CardHeader>
       <CardContent>
@@ -229,58 +142,40 @@ const PlanGenerationCard: React.FC<PlanGenerationCardProps> = ({
             </div>
           </div>
 
-          {generating && (
-            <div className="space-y-3">
+          {requesting && (
+            <div className="space-y-3 bg-blue-50 p-4 rounded-lg">
               <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm font-medium">
-                  {step === 'training' && 'Gerando plano de treino...'}
-                  {step === 'nutrition' && 'Gerando plano de alimentação...'}
-                  {step === 'calendar' && 'Agendando no calendário...'}
-                  {step === 'complete' && 'Concluído!'}
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">
+                  Enviando solicitação para o agente IA...
                 </span>
               </div>
-              
-              <div className="space-y-2">
-                <div className={`flex items-center gap-2 text-sm ${step === 'training' || step === 'nutrition' || step === 'calendar' || step === 'complete' ? 'text-green-600' : 'text-gray-400'}`}>
-                  <Dumbbell className="w-4 h-4" />
-                  <span>Plano de Treino</span>
-                  {(step === 'nutrition' || step === 'calendar' || step === 'complete') && <CheckCircle className="w-4 h-4" />}
-                </div>
-                <div className={`flex items-center gap-2 text-sm ${step === 'nutrition' || step === 'calendar' || step === 'complete' ? 'text-green-600' : 'text-gray-400'}`}>
-                  <Utensils className="w-4 h-4" />
-                  <span>Plano de Alimentação</span>
-                  {(step === 'calendar' || step === 'complete') && <CheckCircle className="w-4 h-4" />}
-                </div>
-                <div className={`flex items-center gap-2 text-sm ${step === 'calendar' || step === 'complete' ? 'text-green-600' : 'text-gray-400'}`}>
-                  <Calendar className="w-4 h-4" />
-                  <span>Agendamento</span>
-                  {step === 'complete' && <CheckCircle className="w-4 h-4" />}
-                </div>
-              </div>
+              <p className="text-xs text-blue-600">
+                O agente irá gerar seus planos e agendar automaticamente no calendário
+              </p>
             </div>
           )}
 
           <Button 
-            onClick={generatePlans} 
-            disabled={generating}
+            onClick={requestPlans} 
+            disabled={requesting}
             className="w-full"
           >
-            {generating ? (
+            {requesting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Gerando planos...
+                Solicitando...
               </>
             ) : (
               <>
                 <Dumbbell className="w-4 h-4 mr-2" />
-                Gerar Planos Completos
+                Solicitar Planos ao Agente IA
               </>
             )}
           </Button>
 
           <p className="text-xs text-gray-500 text-center">
-            Os planos serão gerados automaticamente e agendados no seu Google Calendar
+            O agente IA criará seus planos e agendará automaticamente no Google Calendar
           </p>
         </div>
       </CardContent>

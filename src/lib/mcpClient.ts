@@ -112,6 +112,9 @@ export const mcpAI = {
   gerarPlanoDieta: (objetivo: string, peso: number, altura: number, alimentos: string[], restricoes: string[]) =>
     mcpCall('AI-AGENT', 'gerar_plano_dieta', { objetivo, peso, altura, alimentos, restricoes }),
   
+  gerarPlanoCompleto: (request: any) =>
+    mcpCall('AI-AGENT', 'gerar_plano_completo', request),
+  
   reavaliar: (feedback: string) =>
     mcpCall('AI-AGENT', 'reavaliar', { feedback })
 }
