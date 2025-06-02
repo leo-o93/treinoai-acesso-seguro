@@ -1,1 +1,44 @@
+
 project_id = "shhkccidqvvrwgxlyvqq"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[auth]
+enabled = true
+port = 54322
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://localhost:3000"]
+jwt_expiry = 3600
+enable_signup = true
+email_double_confirm_changes = true
+enable_manual_linking = false
+
+[db]
+port = 54323
+
+[edge_runtime]
+enabled = true
+port = 54324
+
+[functions.oauth-google-callback]
+verify_jwt = false
+
+[functions.oauth-google-start]
+verify_jwt = true
+
+[functions.oauth-strava-callback]
+verify_jwt = false
+
+[functions.oauth-strava-start]
+verify_jwt = true
+
+[functions.api-integrations]
+verify_jwt = true
+
+[functions.refresh-tokens]
+verify_jwt = true

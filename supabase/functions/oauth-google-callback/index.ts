@@ -24,7 +24,7 @@ serve(async (req) => {
     console.log('State (user_id):', state)
     console.log('Error:', error)
     console.log('URL completa:', req.url)
-    console.log('Função callback atualizada - v2.0')
+    console.log('Função callback atualizada - v3.0 PUBLIC')
 
     if (error) {
       console.error('Erro do Google OAuth:', error)
@@ -49,23 +49,32 @@ serve(async (req) => {
       })
     }
 
-    // Usar as credenciais atualizadas
-    const clientSecret = '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'
-    console.log('Using client secret:', clientSecret.substring(0, 10) + '...')
-
+    // Usar Service Role Key para operações administrativas (sem JWT)
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Configurações para troca de tokens com credenciais atualizadas
+    // Configurações para troca de tokens
     const clientId = '852850023522-rol2lqofflhmr4chdem3drtga8ahvm78.apps.googleusercontent.com'
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
     const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
 
     console.log('=== TROCANDO CODE POR TOKENS ===')
     console.log('Client ID:', clientId)
     console.log('Redirect URI:', redirectUri)
+    console.log('Client Secret configurado:', !!clientSecret)
     
+    if (!clientSecret) {
+      console.error('GOOGLE_CLIENT_SECRET não configurado')
+      return new Response(null, {
+        status: 302,
+        headers: {
+          'Location': '/integracoes?error=configuration_error'
+        }
+      })
+    }
+
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: {
@@ -108,7 +117,7 @@ serve(async (req) => {
     console.log('User ID:', state)
     console.log('Expires at:', expiresAt.toISOString())
 
-    // Salvar integração no banco
+    // Salvar integração no banco (usando Service Role, sem necessidade de JWT)
     const { error: dbError } = await supabase
       .from('user_integrations')
       .upsert({
