@@ -16,7 +16,11 @@ export type Database = {
           created_at: string
           id: string
           message_type: string
+          operator_id: string | null
+          read_status: string | null
+          response_status: string | null
           session_id: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -25,7 +29,11 @@ export type Database = {
           created_at?: string
           id?: string
           message_type: string
+          operator_id?: string | null
+          read_status?: string | null
+          response_status?: string | null
           session_id: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -34,10 +42,61 @@ export type Database = {
           created_at?: string
           id?: string
           message_type?: string
+          operator_id?: string | null
+          read_status?: string | null
+          response_status?: string | null
           session_id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
+      }
+      ai_responses: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          delivery_attempts: number | null
+          delivery_status: string | null
+          error_message: string | null
+          id: string
+          last_attempt_at: string | null
+          operator_id: string | null
+          response: string
+          session_id: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          delivery_attempts?: number | null
+          delivery_status?: string | null
+          error_message?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          operator_id?: string | null
+          response: string
+          session_id: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          delivery_attempts?: number | null
+          delivery_status?: string | null
+          error_message?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          operator_id?: string | null
+          response?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_responses_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       calendar_events: {
         Row: {
