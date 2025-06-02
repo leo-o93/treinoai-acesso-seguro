@@ -57,48 +57,31 @@ const PlanoAtual: React.FC = () => {
     enabled: !!user?.id
   })
 
-  if (isLoading || dataLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
-        <Navbar />
-        <div className="container mx-auto p-6 max-w-6xl">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded-lg"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Dados reais de aderência baseados nas atividades do Strava
+  // Mover todos os useMemo para o topo, antes das condicionais
   const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
   
-  const adherenceData = diasSemana.map((dia, index) => {
-    const activitiesToday = processedData?.stravaActivities.filter(activity => 
-      new Date(activity.date).getDay() === index &&
-      new Date(activity.date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    ) || []
-    
-    const eventsToday = processedData?.calendarEvents.filter(event =>
-      new Date(event.startTime).getDay() === index &&
-      new Date(event.startTime) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) &&
-      event.type === 'workout'
-    ) || []
-    
-    return {
-      dia,
-      planejado: eventsToday.length || (index % 2 === 0 ? 1 : 0), // Dias alternados como exemplo
-      realizado: activitiesToday.length,
-      aderencia: activitiesToday.length > 0 ? 100 : 0
-    }
-  })
+  const adherenceData = React.useMemo(() => {
+    return diasSemana.map((dia, index) => {
+      const activitiesToday = processedData?.stravaActivities.filter(activity => 
+        new Date(activity.date).getDay() === index &&
+        new Date(activity.date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      ) || []
+      
+      const eventsToday = processedData?.calendarEvents.filter(event =>
+        new Date(event.startTime).getDay() === index &&
+        new Date(event.startTime) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) &&
+        event.type === 'workout'
+      ) || []
+      
+      return {
+        dia,
+        planejado: eventsToday.length || (index % 2 === 0 ? 1 : 0),
+        realizado: activitiesToday.length,
+        aderencia: activitiesToday.length > 0 ? 100 : 0
+      }
+    })
+  }, [processedData])
 
-  // Distribuição real de tipos de treino baseada no Strava
   const tipoTreinoData = React.useMemo(() => {
     if (!processedData?.stravaActivities.length) {
       return [
@@ -124,20 +107,22 @@ const PlanoAtual: React.FC = () => {
     }))
   }, [processedData])
 
-  // Dados nutricionais reais
-  const nutritionData = processedData?.nutritionPlans.length > 0 ? 
-    processedData.nutritionPlans[0].meals.map(meal => ({
-      refeicao: meal.name,
-      calorias: meal.calories,
-      proteina: Math.round(meal.calories * 0.25 / 4),
-      carbs: Math.round(meal.calories * 0.5 / 4)
-    })) : []
+  const nutritionData = React.useMemo(() => {
+    return processedData?.nutritionPlans.length > 0 ? 
+      processedData.nutritionPlans[0].meals.map(meal => ({
+        refeicao: meal.name,
+        calorias: meal.calories,
+        proteina: Math.round(meal.calories * 0.25 / 4),
+        carbs: Math.round(meal.calories * 0.5 / 4)
+      })) : []
+  }, [processedData])
 
-  const planData = planoAtual?.plan_data ? 
-    (typeof planoAtual.plan_data === 'string' ? JSON.parse(planoAtual.plan_data) : planoAtual.plan_data) 
-    : null
+  const planData = React.useMemo(() => {
+    return planoAtual?.plan_data ? 
+      (typeof planoAtual.plan_data === 'string' ? JSON.parse(planoAtual.plan_data) : planoAtual.plan_data) 
+      : null
+  }, [planoAtual])
 
-  // Dados de performance semanal real
   const weeklyPerformanceData = React.useMemo(() => {
     if (!processedData?.stravaActivities.length) return []
 
@@ -161,6 +146,25 @@ const PlanoAtual: React.FC = () => {
       }
     })
   }, [processedData])
+
+  // Agora as condicionais de loading podem vir depois de todos os hooks
+  if (isLoading || dataLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+        <Navbar />
+        <div className="container mx-auto p-6 max-w-6xl">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-64 bg-gray-200 rounded-lg"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
