@@ -113,7 +113,7 @@ const Perfil: React.FC = () => {
             <CardContent className="space-y-4">
               <div className="text-center">
                 <div className="text-3xl font-bold text-blue-600">
-                  {profile?.idade || profile?.age || 'N/A'}
+                  {profile?.age || 'N/A'}
                 </div>
                 <div className="text-sm text-gray-600">Anos</div>
               </div>

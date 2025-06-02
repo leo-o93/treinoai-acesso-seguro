@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
@@ -8,7 +7,7 @@ import Navbar from '@/components/layout/Navbar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Calendar, Clock, Dumbbell, Utensils, TrendingUp, CheckCircle, BarChart3 } from 'lucide-react'
+import { Calendar, Clock, Dumbbell, Utensils, TrendingUp, CheckCircle, BarChart3, Activity } from 'lucide-react'
 import { format, startOfWeek, addDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
