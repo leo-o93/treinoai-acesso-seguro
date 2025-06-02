@@ -1,8 +1,34 @@
-
-import { useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/integrations/supabase/client'
 import { User, Session } from '@supabase/supabase-js'
+
+interface AuthContextType {
+  user: User | null
+  session: Session | null
+  loading: boolean
+  signOut: () => Promise<void>
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const authValue = useAuth()
+  
+  return (
+    <AuthContext.Provider value={authValue}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export const useAuthContext = () => {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuthContext must be used within an AuthProvider')
+  }
+  return context
+}
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null)

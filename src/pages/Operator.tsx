@@ -1,7 +1,7 @@
 
 import React from 'react'
 import ConversationManager from '@/components/operator/ConversationManager'
-import { withAuth } from '@/components/auth/withAuth'
+import withAuth from '@/components/auth/withAuth'
 
 const Operator: React.FC = () => {
   return (
