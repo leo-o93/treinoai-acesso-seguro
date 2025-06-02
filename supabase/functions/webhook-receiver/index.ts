@@ -374,6 +374,169 @@ serve(async (req) => {
   }
 })
 
+// ===== FUNÇÕES AUXILIARES =====
+
+// Função para categorizar mensagens do WhatsApp
+function categorizeMessage(message: string): string {
+  const lowerMessage = message.toLowerCase()
+  
+  // Palavras-chave para agenda/treino
+  const agendaKeywords = ['agenda', 'treino', 'exercício', 'academia', 'corrida', 'amanhã', 'hoje', 'semana']
+  
+  // Palavras-chave para dieta/nutrição
+  const dietaKeywords = ['dieta', 'comida', 'comer', 'refeição', 'café', 'almoço', 'jantar', 'lanche', 'alimentação']
+  
+  // Palavras-chave para Strava
+  const stravaKeywords = ['strava', 'corrida', 'pace', 'km', 'quilômetros', 'atividade', 'exercício físico']
+  
+  // Verificar categoria
+  if (agendaKeywords.some(keyword => lowerMessage.includes(keyword))) {
+    return 'agenda_treino'
+  } else if (dietaKeywords.some(keyword => lowerMessage.includes(keyword))) {
+    return 'dieta_nutricao'
+  } else if (stravaKeywords.some(keyword => lowerMessage.includes(keyword))) {
+    return 'strava_atividades'
+  }
+  
+  return 'conversa_geral'
+}
+
+// Função para extrair eventos estruturados da resposta da IA
+async function extractStructuredEvents(aiResponse: string, userId: string, supabaseClient: any): Promise<any[]> {
+  const events: any[] = []
+  
+  try {
+    // Buscar padrões de horário e eventos na resposta
+    const eventPatterns = [
+      /(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\s*(.+?)(?=\n|$)/g,
+      /\*\*(\d{1,2}:\d{2})\s*-\s*(\d{1,2}:\d{2})\*\*\s*(.+?)(?=\n|$)/g
+    ]
+    
+    for (const pattern of eventPatterns) {
+      let match
+      while ((match = pattern.exec(aiResponse)) !== null) {
+        const startTime = match[1]
+        const endTime = match[2]
+        const description = match[3].replace(/\*\*/g, '').trim()
+        
+        if (description.length > 5) { // Validar se a descrição não está vazia
+          // Criar data para hoje + horário
+          const today = new Date()
+          const tomorrow = new Date(today)
+          tomorrow.setDate(tomorrow.getDate() + 1)
+          
+          const [startHour, startMinute] = startTime.split(':')
+          const [endHour, endMinute] = endTime.split(':')
+          
+          const startDateTime = new Date(tomorrow)
+          startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0, 0)
+          
+          const endDateTime = new Date(tomorrow)
+          endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0, 0)
+          
+          // Determinar tipo de evento
+          let eventType = 'meal'
+          if (description.toLowerCase().includes('treino') || description.toLowerCase().includes('exercício')) {
+            eventType = 'workout'
+          }
+          
+          const eventData = {
+            user_id: userId,
+            title: description.substring(0, 100), // Limitar título
+            description: description,
+            event_type: eventType,
+            start_time: startDateTime.toISOString(),
+            end_time: endDateTime.toISOString(),
+            status: 'scheduled'
+          }
+          
+          // Salvar no banco
+          const { data: savedEvent, error } = await supabaseClient
+            .from('calendar_events')
+            .insert(eventData)
+            .select()
+            .single()
+          
+          if (!error && savedEvent) {
+            events.push(savedEvent)
+            console.log('Evento salvo:', savedEvent.title)
+          } else {
+            console.error('Erro ao salvar evento:', error)
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao extrair eventos:', error)
+  }
+  
+  return events
+}
+
+// Função para extrair atividades Strava da resposta da IA
+async function extractStravaActivities(aiResponse: string, userId: string, supabaseClient: any): Promise<any[]> {
+  const activities: any[] = []
+  
+  try {
+    // Buscar padrões de atividades físicas
+    const activityPatterns = [
+      /corrida|correr|running/gi,
+      /pace|ritmo/gi,
+      /km|quilômetros|distância/gi,
+      /treino|workout|exercício/gi
+    ]
+    
+    const hasActivityMention = activityPatterns.some(pattern => pattern.test(aiResponse))
+    
+    if (hasActivityMention) {
+      // Extrair métricas se disponíveis
+      const distanceMatch = aiResponse.match(/(\d+(?:\.\d+)?)\s*km/i)
+      const paceMatch = aiResponse.match(/(\d+:\d+)\s*(?:min\/km|pace)/i)
+      const timeMatch = aiResponse.match(/(\d+)\s*min/i)
+      
+      if (distanceMatch || paceMatch || timeMatch) {
+        const activityData = {
+          user_id: userId,
+          strava_activity_id: `extracted_${Date.now()}`,
+          name: 'Atividade extraída da conversa',
+          type: 'Run',
+          start_date: new Date().toISOString(),
+          distance: distanceMatch ? parseFloat(distanceMatch[1]) * 1000 : null, // Converter para metros
+          moving_time: timeMatch ? parseInt(timeMatch[1]) * 60 : null, // Converter para segundos
+          average_speed: null,
+          calories: null
+        }
+        
+        // Calcular pace se disponível
+        if (paceMatch && distanceMatch) {
+          const [minutes, seconds] = paceMatch[1].split(':')
+          const paceInSeconds = parseInt(minutes) * 60 + parseInt(seconds)
+          const distanceKm = parseFloat(distanceMatch[1])
+          activityData.average_speed = distanceKm / (paceInSeconds / 60) // km/h
+        }
+        
+        // Salvar no banco
+        const { data: savedActivity, error } = await supabaseClient
+          .from('strava_activities')
+          .insert(activityData)
+          .select()
+          .single()
+        
+        if (!error && savedActivity) {
+          activities.push(savedActivity)
+          console.log('Atividade Strava salva:', savedActivity.name)
+        } else {
+          console.error('Erro ao salvar atividade Strava:', error)
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao extrair atividades Strava:', error)
+  }
+  
+  return activities
+}
+
 // Nova função para processar mensagens MCP
 async function processMCPMessage(mcpMessage: any, supabaseClient: any) {
   try {
@@ -627,4 +790,34 @@ async function getUserIdFromSession(sessionId: string, supabaseClient: any): Pro
     console.error('Erro ao buscar user_id:', error)
     return '48a7ab75-4bae-4b6b-8ae5-bce83d5ba595' // fallback
   }
+}
+
+async function processStravaData(supabaseClient: any, userId: string, data: any) {
+  // Implementar processamento de dados Strava
+  console.log('Processing Strava data for user:', userId, data)
+}
+
+async function processTrainingPlan(supabaseClient: any, userId: string, data: any) {
+  // Implementar processamento de plano de treino
+  console.log('Processing training plan for user:', userId, data)
+}
+
+async function processNutritionPlan(supabaseClient: any, userId: string, data: any) {
+  // Implementar processamento de plano nutricional
+  console.log('Processing nutrition plan for user:', userId, data)
+}
+
+async function processCalendarEvent(supabaseClient: any, userId: string, data: any) {
+  // Implementar processamento de evento de calendário
+  console.log('Processing calendar event for user:', userId, data)
+}
+
+async function processAIConversation(supabaseClient: any, userId: string, data: any) {
+  // Implementar processamento de conversa com IA
+  console.log('Processing AI conversation for user:', userId, data)
+}
+
+async function processUserProfile(supabaseClient: any, userId: string, data: any) {
+  // Implementar processamento de perfil de usuário
+  console.log('Processing user profile for user:', userId, data)
 }
