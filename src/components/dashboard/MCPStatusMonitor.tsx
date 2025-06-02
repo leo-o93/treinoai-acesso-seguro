@@ -8,7 +8,7 @@ import {
   Zap, 
   MessageSquare, 
   Send, 
-  Receive, 
+  ArrowDown,
   CheckCircle, 
   AlertCircle,
   RefreshCw,
@@ -72,7 +72,7 @@ const MCPStatusMonitor: React.FC = () => {
 
   const getMessageTypeIcon = (eventType: string) => {
     if (eventType.includes('outbound')) return <Send className="w-4 h-4 text-blue-500" />
-    if (eventType.includes('inbound')) return <Receive className="w-4 h-4 text-green-500" />
+    if (eventType.includes('inbound')) return <ArrowDown className="w-4 h-4 text-green-500" />
     return <MessageSquare className="w-4 h-4 text-gray-500" />
   }
 
@@ -125,7 +125,7 @@ const MCPStatusMonitor: React.FC = () => {
 
               <div className="p-3 border rounded-lg bg-green-50">
                 <div className="flex items-center gap-2 mb-1">
-                  <Receive className="w-4 h-4 text-green-500" />
+                  <ArrowDown className="w-4 h-4 text-green-500" />
                   <span className="text-sm font-medium text-green-900">Recebidas</span>
                 </div>
                 <div className="text-lg font-bold text-green-800">{mcpStats.inbound}</div>
@@ -183,39 +183,44 @@ const MCPStatusMonitor: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {mcpLogs.map((log) => (
-                  <div key={log.id} className="p-4 border rounded-lg bg-white">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        {getMessageTypeIcon(log.event_type)}
-                        {getStatusIcon(log)}
-                        <span className="font-medium text-sm">{log.event_type}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {log.source.replace('mcp_', '')}
-                        </Badge>
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {format(new Date(log.created_at), 'HH:mm:ss', { locale: ptBR })}
-                      </span>
-                    </div>
-
-                    {log.payload?.mcp_message && (
-                      <div className="text-sm text-gray-700 mb-2">
-                        <div className="bg-gray-50 p-2 rounded text-xs">
-                          <strong>Tipo:</strong> {log.payload.mcp_message.type} <br />
-                          <strong>Sessão:</strong> {log.payload.mcp_message.session_id} <br />
-                          <strong>Destino:</strong> {log.payload.mcp_message.destination}
+                {mcpLogs.map((log) => {
+                  // Type assertion para acessar propriedades do payload
+                  const payload = log.payload as { mcp_message?: any; direction?: string }
+                  
+                  return (
+                    <div key={log.id} className="p-4 border rounded-lg bg-white">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {getMessageTypeIcon(log.event_type)}
+                          {getStatusIcon(log)}
+                          <span className="font-medium text-sm">{log.event_type}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {log.source.replace('mcp_', '')}
+                          </Badge>
                         </div>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(log.created_at), 'HH:mm:ss', { locale: ptBR })}
+                        </span>
                       </div>
-                    )}
 
-                    {log.error_message && (
-                      <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
-                        Erro: {log.error_message}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {payload?.mcp_message && (
+                        <div className="text-sm text-gray-700 mb-2">
+                          <div className="bg-gray-50 p-2 rounded text-xs">
+                            <strong>Tipo:</strong> {payload.mcp_message.type} <br />
+                            <strong>Sessão:</strong> {payload.mcp_message.session_id} <br />
+                            <strong>Destino:</strong> {payload.mcp_message.destination}
+                          </div>
+                        </div>
+                      )}
+
+                      {log.error_message && (
+                        <div className="text-xs text-red-600 bg-red-50 p-2 rounded">
+                          Erro: {log.error_message}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </TabsContent>

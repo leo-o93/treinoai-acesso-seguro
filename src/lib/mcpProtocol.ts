@@ -205,14 +205,17 @@ export class MCPProtocol {
   // Utilitários
   private static async logMCPMessage(message: MCPMessage, direction: 'inbound' | 'outbound'): Promise<void> {
     try {
+      // Serializar corretamente o objeto MCP para JSON
+      const serializedPayload = {
+        mcp_message: JSON.parse(JSON.stringify(message)),
+        direction,
+        processed_at: new Date().toISOString()
+      }
+
       await supabase.from('webhook_logs').insert({
         source: `mcp_${direction}`,
         event_type: `mcp_${message.type}`,
-        payload: {
-          mcp_message: message,
-          direction,
-          processed_at: new Date().toISOString()
-        },
+        payload: serializedPayload,
         processed: true
       })
     } catch (error) {
