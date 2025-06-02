@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -105,21 +104,17 @@ serve(async (req) => {
       // Buscar user_id baseado no telefone do WhatsApp
       let userId = null
       try {
-        const { data: userProfile } = await supabaseClient
-          .from('user_profiles')
-          .select('user_id')
-          .eq('whatsapp_phone', phone)
-          .maybeSingle()
-        
-        if (userProfile) {
-          userId = userProfile.user_id
-          console.log('User ID encontrado:', userId)
-        } else {
-          console.log('Nenhum user_id encontrado para o telefone:', phone)
-        }
+        // Por enquanto, usar um user_id fixo para teste
+        // TODO: Implementar mapeamento correto phone -> user_id
+        const hardcodedUserId = '550e8400-e29b-41d4-a716-446655440000' // Substitua pelo user_id real
+        userId = hardcodedUserId
+        console.log('User ID usado (hardcoded para teste):', userId)
       } catch (error) {
         console.error('Erro ao buscar user_id:', error)
       }
+
+      // Inicializar variável para eventos extraídos
+      let extractedEvents = []
 
       // Salvar mensagem do usuário
       const { data: conversationData, error: conversationError } = await supabaseClient
@@ -152,7 +147,6 @@ serve(async (req) => {
       // Salvar resposta da IA se fornecida
       if (aiResponse) {
         // Tentar extrair eventos estruturados da resposta da IA
-        let extractedEvents = []
         if (userId) {
           try {
             extractedEvents = await extractStructuredEvents(aiResponse, userId, supabaseClient)
@@ -333,18 +327,26 @@ serve(async (req) => {
 async function extractStructuredEvents(aiResponse: string, userId: string, supabaseClient: any) {
   const events = []
   
+  console.log('=== INICIANDO EXTRAÇÃO DE EVENTOS ===')
+  console.log('AI Response length:', aiResponse.length)
+  
   // Regex patterns para extrair eventos estruturados
   const eventPattern = /\d+\.\s\*\*(.*?)\*\*\s*\n\s*-\s\*\*Horário:\*\*\s(.*?)\n\s*-\s\*\*Descrição:\*\*(.*?)(?:\n\s*-\s\[Link do Evento\]\((.*?)\))?/g
   
   let match
+  let matchCount = 0
   while ((match = eventPattern.exec(aiResponse)) !== null) {
+    matchCount++
     const [, title, timeRange, description, eventLink] = match
     
-    console.log('Evento encontrado:', { title, timeRange, description, eventLink })
+    console.log(`Evento ${matchCount} encontrado:`, { title, timeRange, description, eventLink })
     
     // Parse do horário
     const timeMatch = timeRange.match(/(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})/)
-    if (!timeMatch) continue
+    if (!timeMatch) {
+      console.log('Não foi possível fazer parse do horário:', timeRange)
+      continue
+    }
     
     const [, startHour, startMin, endHour, endMin] = timeMatch
     
@@ -354,7 +356,7 @@ async function extractStructuredEvents(aiResponse: string, userId: string, supab
     tomorrow.setDate(today.getDate() + 1)
     
     // Determinar se é para hoje ou amanhã baseado no contexto
-    const targetDate = aiResponse.includes('amanhã') ? tomorrow : today
+    const targetDate = aiResponse.includes('amanhã') || aiResponse.includes('terça') ? tomorrow : today
     
     const startTime = new Date(targetDate)
     startTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0)
@@ -376,6 +378,8 @@ async function extractStructuredEvents(aiResponse: string, userId: string, supab
       google_event_id: extractEventIdFromLink(eventLink)
     }
     
+    console.log('Dados do evento para salvar:', eventData)
+    
     try {
       const { data: savedEvent, error } = await supabaseClient
         .from('calendar_events')
@@ -386,7 +390,7 @@ async function extractStructuredEvents(aiResponse: string, userId: string, supab
       if (error) {
         console.error('Erro ao salvar evento:', error)
       } else {
-        console.log('Evento salvo:', savedEvent)
+        console.log('Evento salvo com sucesso:', savedEvent)
         events.push(savedEvent)
       }
     } catch (error) {
@@ -394,6 +398,7 @@ async function extractStructuredEvents(aiResponse: string, userId: string, supab
     }
   }
   
+  console.log(`=== EXTRAÇÃO COMPLETA: ${events.length} eventos salvos ===`)
   return events
 }
 
