@@ -11,6 +11,7 @@ import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import WebhookMonitor from "@/components/dashboard/WebhookMonitor";
 import AIToolsMonitor from "@/components/dashboard/AIToolsMonitor";
 import TrainerAIStats from "@/components/dashboard/TrainerAIStats";
+import N8nWebhookMonitor from "@/components/dashboard/N8nWebhookMonitor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, User, Calendar, Target } from "lucide-react";
@@ -138,7 +139,8 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Grid inferior - Monitoramento de sistemas */}
-          <div className="grid grid-cols-1 xl:grid-cols-1 gap-6">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+            <N8nWebhookMonitor />
             <WebhookMonitor />
           </div>
 
