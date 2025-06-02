@@ -44,7 +44,7 @@ const PlanRecommendations: React.FC = () => {
         .limit(4)
       
       if (error) throw error
-      return data as WeeklyFeedback[]
+      return (data as any[]) as WeeklyFeedback[]
     },
     enabled: !!user?.id
   })

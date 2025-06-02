@@ -40,32 +40,21 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
 
   const currentWeekStart = getCurrentWeekStart()
 
-  // Fetch this week's feedback using raw SQL query to avoid TypeScript issues
+  // Fetch this week's feedback
   const { data: currentFeedback, isLoading } = useQuery({
     queryKey: ['weekly-feedback', user?.id, currentWeekStart],
     queryFn: async (): Promise<WeeklyFeedback | null> => {
       if (!user?.id) return null
       
       const { data, error } = await supabase
-        .rpc('get_weekly_feedback', { 
-          p_user_id: user.id, 
-          p_week_start: currentWeekStart 
-        })
+        .from('weekly_feedback' as any)
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('week_start', currentWeekStart)
+        .maybeSingle()
       
-      if (error) {
-        // Fallback to direct query if RPC doesn't exist
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('weekly_feedback' as any)
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('week_start', currentWeekStart)
-          .maybeSingle()
-        
-        if (fallbackError && fallbackError.code !== 'PGRST116') throw fallbackError
-        return fallbackData as WeeklyFeedback | null
-      }
-      
-      return data?.[0] || null
+      if (error && error.code !== 'PGRST116') throw error
+      return data ? (data as any) as WeeklyFeedback : null
     },
     enabled: !!user?.id
   })
@@ -101,7 +90,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
         .limit(4)
       
       if (error) throw error
-      return data as WeeklyFeedback[]
+      return (data as any[]) as WeeklyFeedback[]
     },
     enabled: !!user?.id
   })
