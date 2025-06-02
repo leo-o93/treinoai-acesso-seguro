@@ -48,17 +48,9 @@ serve(async (req) => {
       })
     }
 
-    // Verificar se GOOGLE_CLIENT_SECRET está configurado
-    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-    if (!clientSecret) {
-      console.error('GOOGLE_CLIENT_SECRET not configured')
-      return new Response(null, {
-        status: 302,
-        headers: {
-          'Location': '/integracoes?error=configuration_error'
-        }
-      })
-    }
+    // Usar a nova client secret
+    const clientSecret = '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'
+    console.log('Using client secret:', clientSecret.substring(0, 10) + '...')
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',

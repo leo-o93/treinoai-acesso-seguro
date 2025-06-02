@@ -59,6 +59,8 @@ serve(async (req) => {
       )
     }
 
+    console.log('Client secret configured successfully')
+
     // Configurações do Google OAuth
     const clientId = '948364531614-k0u8vg4k72v7s6hb4dqriqb0tec5qksl.apps.googleusercontent.com'
     const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
@@ -89,7 +91,8 @@ serve(async (req) => {
           clientId,
           redirectUri,
           scope,
-          state
+          state,
+          secretConfigured: !!clientSecret
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
