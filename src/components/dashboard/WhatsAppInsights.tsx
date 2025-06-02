@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +13,11 @@ interface CategoryStats {
   agendamento: number
   strava: number
   geral: number
+}
+
+interface MessageContext {
+  category?: string
+  [key: string]: any
 }
 
 const WhatsAppInsights: React.FC = () => {
@@ -53,7 +57,8 @@ const WhatsAppInsights: React.FC = () => {
       let lastActivity = null
 
       messages?.forEach(message => {
-        const category = message.context?.category || 'geral'
+        const context = message.context as MessageContext | null
+        const category = context?.category || 'geral'
         if (category in categories) {
           categories[category as keyof CategoryStats]++
         }
