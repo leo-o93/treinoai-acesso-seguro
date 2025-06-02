@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -27,9 +26,14 @@ import {
   Award,
   AlertCircle,
   CheckCircle2,
-  Clock
+  Clock,
+  MapPin,
+  Utensils,
+  Dumbbell
 } from 'lucide-react'
 import { ProcessedData } from '@/services/dataProcessor'
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 interface DataVisualizationProps {
   data: ProcessedData
@@ -71,6 +75,30 @@ const DataVisualization: React.FC<DataVisualizationProps> = ({ data }) => {
       
       return acc
     }, [] as Array<{ day: string; count: number; completed: number }>)
+
+  // Função para obter ícone do tipo de evento
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'workout':
+        return <Dumbbell className="w-4 h-4" />
+      case 'meal':
+        return <Utensils className="w-4 h-4" />
+      default:
+        return <Calendar className="w-4 h-4" />
+    }
+  }
+
+  // Função para obter cor do tipo de evento
+  const getEventColor = (eventType: string) => {
+    switch (eventType) {
+      case 'workout':
+        return 'text-orange-600 bg-orange-50 border-orange-200'
+      case 'meal':
+        return 'text-green-600 bg-green-50 border-green-200'
+      default:
+        return 'text-blue-600 bg-blue-50 border-blue-200'
+    }
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -118,6 +146,65 @@ const DataVisualization: React.FC<DataVisualizationProps> = ({ data }) => {
               <div className="text-xs text-gray-500">km/h</div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Eventos do Google Calendar */}
+      <Card className="xl:col-span-3">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="w-5 h-5 text-blue-500" />
+            Eventos do Google Calendar
+            <Badge variant="outline" className="ml-auto">
+              {calendarEvents.length} eventos
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {calendarEvents.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {calendarEvents.slice(0, 8).map((event) => (
+                <div key={event.id} className={`p-3 rounded-lg border ${getEventColor(event.type)}`}>
+                  <div className="flex items-start gap-2 mb-2">
+                    {getEventIcon(event.type)}
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-sm truncate">{event.title}</h4>
+                      {event.description && (
+                        <p className="text-xs opacity-75 truncate mt-1">{event.description}</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      <span>{format(new Date(event.startTime), 'dd/MM HH:mm', { locale: ptBR })}</span>
+                    </div>
+                    
+                    {event.location && (
+                      <div className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        <span className="truncate">{event.location}</span>
+                      </div>
+                    )}
+                    
+                    <Badge variant="outline" className="text-xs">
+                      {event.type === 'workout' ? 'Treino' : 
+                       event.type === 'meal' ? 'Refeição' : 'Evento'}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Calendar className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+              <h3 className="font-medium text-gray-700 mb-2">Nenhum evento encontrado</h3>
+              <p className="text-gray-500 text-sm">
+                Os eventos do Google Calendar aparecerão aqui conforme forem criados via WhatsApp
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
