@@ -104,13 +104,40 @@ serve(async (req) => {
       // Buscar user_id baseado no telefone do WhatsApp
       let userId = null
       try {
-        // Por enquanto, usar um user_id fixo para teste
-        // TODO: Implementar mapeamento correto phone -> user_id
-        const hardcodedUserId = '550e8400-e29b-41d4-a716-446655440000' // Substitua pelo user_id real
-        userId = hardcodedUserId
-        console.log('User ID usado (hardcoded para teste):', userId)
+        console.log('=== BUSCANDO USUÁRIO POR TELEFONE ===')
+        const { data: userProfile, error: userError } = await supabaseClient
+          .from('user_profiles')
+          .select('user_id')
+          .eq('whatsapp_phone', phone)
+          .maybeSingle()
+
+        if (userError) {
+          console.error('Erro ao buscar usuário por telefone:', userError)
+        } else if (userProfile) {
+          userId = userProfile.user_id
+          console.log('Usuário encontrado:', userId)
+        } else {
+          console.log('Usuário não encontrado para telefone:', phone)
+          // Usar fallback user_id para desenvolvimento/teste
+          userId = '48a7ab75-4bae-4b6b-8ae5-bce83d5ba595'
+          console.log('Usando fallback user_id:', userId)
+          
+          // Tentar atualizar o perfil com o telefone
+          try {
+            await supabaseClient
+              .from('user_profiles')
+              .update({ whatsapp_phone: phone })
+              .eq('user_id', userId)
+            console.log('Telefone WhatsApp atualizado no perfil do usuário')
+          } catch (updateError) {
+            console.error('Erro ao atualizar telefone no perfil:', updateError)
+          }
+        }
       } catch (error) {
         console.error('Erro ao buscar user_id:', error)
+        // Usar fallback user_id para desenvolvimento/teste
+        userId = '48a7ab75-4bae-4b6b-8ae5-bce83d5ba595'
+        console.log('Usando fallback user_id devido ao erro:', userId)
       }
 
       // Inicializar variável para eventos extraídos
@@ -576,6 +603,7 @@ async function processUserProfile(supabaseClient: any, userId: string, data: any
       experience_level: data.experience_level,
       strava_connected: data.strava_connected,
       strava_athlete_id: data.strava_athlete_id,
+      whatsapp_phone: data.whatsapp_phone,
       updated_at: new Date().toISOString()
     }, {
       onConflict: 'user_id'

@@ -14,12 +14,21 @@ export const getUserProfile = async (userId: string) => {
 }
 
 export const getUserProfileByPhone = async (phone: string) => {
-  // Note: user_profiles table doesn't have whatsapp_phone column
-  // We'll need to use a different approach or add this column via SQL migration
   console.log('Searching for user by phone:', phone)
   
-  // For now, return null since whatsapp_phone column doesn't exist
-  return null
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .select('*')
+    .eq('whatsapp_phone', phone)
+    .maybeSingle()
+
+  if (error) {
+    console.error('Error searching user by phone:', error)
+    throw error
+  }
+  
+  console.log('User found by phone:', data)
+  return data
 }
 
 export const upsertUserProfile = async (profile: {
@@ -36,6 +45,7 @@ export const upsertUserProfile = async (profile: {
   restrictions?: string[]
   strava_connected?: boolean
   strava_athlete_id?: string
+  whatsapp_phone?: string
 }) => {
   const { data, error } = await supabase
     .from('user_profiles')
@@ -48,10 +58,19 @@ export const upsertUserProfile = async (profile: {
 }
 
 export const updateUserWhatsAppPhone = async (userId: string, phone: string) => {
-  // Note: whatsapp_phone column doesn't exist in user_profiles table
-  // This function would need the column to be added via SQL migration
-  console.log('Would update WhatsApp phone for user:', userId, 'to:', phone)
+  console.log('Updating WhatsApp phone for user:', userId, 'to:', phone)
   
-  // For now, just return the existing profile
-  return getUserProfile(userId)
+  const { data, error } = await supabase
+    .from('user_profiles')
+    .update({ whatsapp_phone: phone })
+    .eq('user_id', userId)
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error updating WhatsApp phone:', error)
+    throw error
+  }
+  
+  return data
 }
