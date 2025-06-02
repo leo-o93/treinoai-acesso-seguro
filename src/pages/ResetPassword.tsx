@@ -21,7 +21,7 @@ const ResetPasswordPage = () => {
   }
 
   return (
-    <AuthLayout>
+    <AuthLayout title="Redefinir Senha" subtitle="Digite seu email para receber o link de redefinição.">
       <ResetPassword />
     </AuthLayout>
   )

@@ -21,7 +21,7 @@ const UpdatePassword = () => {
   }
 
   return (
-    <AuthLayout>
+    <AuthLayout title="Atualizar Senha" subtitle="Altere sua senha de acesso.">
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Atualizar Senha</CardTitle>

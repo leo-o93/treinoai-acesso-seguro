@@ -21,7 +21,7 @@ const Login = () => {
   }
 
   return (
-    <AuthLayout>
+    <AuthLayout title="Entrar" subtitle="Bem-vindo de volta! Faça login em sua conta.">
       <SignIn />
     </AuthLayout>
   )

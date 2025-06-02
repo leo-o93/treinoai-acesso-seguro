@@ -21,7 +21,7 @@ const Register = () => {
   }
 
   return (
-    <AuthLayout>
+    <AuthLayout title="Criar Conta" subtitle="Junte-se à TrainerAI e transforme seus treinos.">
       <SignUp />
     </AuthLayout>
   )
