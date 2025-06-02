@@ -1,7 +1,9 @@
+
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
+import Navbar from '@/components/layout/Navbar'
 import StatsCard from '@/components/dashboard/StatsCard'
 import RecentActivities from '@/components/dashboard/RecentActivities'
 import ActivePlans from '@/components/dashboard/ActivePlans'
@@ -98,6 +100,8 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+      <Navbar />
+      
       <div className="container mx-auto p-6 space-y-6">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">

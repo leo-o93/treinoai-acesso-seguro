@@ -41,7 +41,7 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedDashboard />} />
             <Route path="/chat" element={<ProtectedChatTrainer />} />
             <Route path="/perfil" element={<ProtectedPerfil />} />
-            <Route path="/plano-atual" element={<ProtectedPlanoAtual />} />
+            <Route path="/plano" element={<ProtectedPlanoAtual />} />
             <Route path="/operator" element={<ProtectedOperator />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
