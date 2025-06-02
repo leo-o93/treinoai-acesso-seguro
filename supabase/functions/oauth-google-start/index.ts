@@ -49,7 +49,7 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id)
 
-    // Configurações do Google OAuth com novo Client ID
+    // Configurações do Google OAuth - Versão atualizada
     const clientId = '852850023522-rol2lqofflhmr4chdem3drtga8ahvm78.apps.googleusercontent.com'
     const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
     const scope = 'https://www.googleapis.com/auth/calendar'
@@ -71,6 +71,7 @@ serve(async (req) => {
     authUrl.searchParams.set('state', state)
 
     console.log('Auth URL gerada:', authUrl.toString())
+    console.log('Função atualizada e funcionando - v2.0')
 
     return new Response(
       JSON.stringify({ 

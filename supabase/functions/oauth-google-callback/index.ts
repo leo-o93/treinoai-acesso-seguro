@@ -24,6 +24,7 @@ serve(async (req) => {
     console.log('State (user_id):', state)
     console.log('Error:', error)
     console.log('URL completa:', req.url)
+    console.log('Função callback atualizada - v2.0')
 
     if (error) {
       console.error('Erro do Google OAuth:', error)
@@ -48,7 +49,7 @@ serve(async (req) => {
       })
     }
 
-    // Usar as novas credenciais
+    // Usar as credenciais atualizadas
     const clientSecret = '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'
     console.log('Using client secret:', clientSecret.substring(0, 10) + '...')
 
@@ -57,7 +58,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Configurações para troca de tokens com novo Client ID
+    // Configurações para troca de tokens com credenciais atualizadas
     const clientId = '852850023522-rol2lqofflhmr4chdem3drtga8ahvm78.apps.googleusercontent.com'
     const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
 
