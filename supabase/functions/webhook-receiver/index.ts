@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -30,22 +31,25 @@ serve(async (req) => {
       console.log('Headers recebidos:', Object.fromEntries(req.headers.entries()))
       console.log('x-webhook-key recebido:', authHeader)
       console.log('x-webhook-key esperado:', expectedKey ? 'CONFIGURADO' : 'NÃO CONFIGURADO')
+      console.log('Timestamp de início:', new Date().toISOString())
       
       if (authHeader !== expectedKey) {
         console.error('ERRO: Webhook key não confere!')
         console.error('Recebido:', authHeader)
         console.error('Esperado:', expectedKey)
         
-        // Log do erro no banco com source fixo
+        // Log do erro no banco com source SEMPRE DEFINIDO
         await supabaseClient
           .from('webhook_logs')
           .insert({
-            source: 'trainerai_whatsapp_n8n',
+            source: 'trainerai_whatsapp_n8n', // SOURCE FIXO PARA ESSA ROTA
             event_type: 'authentication_error',
             payload: {
               error: 'Invalid webhook key',
               received_key: authHeader,
-              headers: Object.fromEntries(req.headers.entries())
+              headers: Object.fromEntries(req.headers.entries()),
+              url_pathname: url.pathname,
+              debug_timestamp: new Date().toISOString()
             },
             processed: false,
             error_message: 'Unauthorized - Invalid webhook key'
@@ -68,27 +72,31 @@ serve(async (req) => {
       try {
         bodyText = await req.text()
         console.log('Body RAW recebido:', bodyText)
+        console.log('Tamanho do body:', bodyText.length)
         
         if (!bodyText.trim()) {
           console.log('Body vazio - criando payload de debug')
           body = {}
         } else {
           body = JSON.parse(bodyText)
-          console.log('Body PARSED:', JSON.stringify(body, null, 2))
+          console.log('Body PARSED com sucesso:', JSON.stringify(body, null, 2))
         }
       } catch (parseError) {
         console.error('ERRO ao fazer parse do JSON:', parseError)
+        console.error('Body que causou erro:', bodyText)
         
-        // Log do erro de parsing com source fixo
+        // Log do erro de parsing com source SEMPRE DEFINIDO
         await supabaseClient
           .from('webhook_logs')
           .insert({
-            source: 'trainerai_whatsapp_n8n',
+            source: 'trainerai_whatsapp_n8n', // SOURCE FIXO PARA ESSA ROTA
             event_type: 'parse_error',
             payload: {
               error: 'JSON parse failed',
               raw_body: bodyText,
-              parse_error: parseError.message
+              parse_error: parseError.message,
+              url_pathname: url.pathname,
+              debug_timestamp: new Date().toISOString()
             },
             processed: false,
             error_message: `JSON parse error: ${parseError.message}`
@@ -107,7 +115,10 @@ serve(async (req) => {
         )
       }
 
-      console.log('=== PROCESSANDO DADOS ===')
+      console.log('=== PROCESSANDO DADOS N8N ===')
+      console.log('Tipo do body:', typeof body)
+      console.log('É array?', Array.isArray(body))
+      console.log('Campos disponíveis:', body ? Object.keys(body) : 'nenhum')
       
       // Processar dados com múltiplos fallbacks
       let messageData = body;
@@ -119,13 +130,13 @@ serve(async (req) => {
       }
       
       // Se tiver propriedade 'data', usar ela
-      if (messageData.data) {
+      if (messageData && messageData.data) {
         messageData = messageData.data;
         console.log('Detectada propriedade data, usando:', messageData)
       }
       
       // Se tiver propriedade 'json', usar ela (comum no n8n)
-      if (messageData.json) {
+      if (messageData && messageData.json) {
         messageData = messageData.json;
         console.log('Detectada propriedade json, usando:', messageData)
       }
@@ -134,13 +145,15 @@ serve(async (req) => {
 
       // Tentar extrair informações com múltiplos campos possíveis
       const extractField = (obj: any, possibleFields: string[]) => {
+        if (!obj) return null
+        
         for (const field of possibleFields) {
-          if (obj && obj[field] !== undefined && obj[field] !== null && obj[field] !== '') {
-            console.log(`Campo '${field}' encontrado:`, obj[field])
+          if (obj[field] !== undefined && obj[field] !== null && obj[field] !== '') {
+            console.log(`Campo '${field}' encontrado com valor:`, obj[field])
             return obj[field]
           }
         }
-        console.log(`Nenhum dos campos ${possibleFields.join(', ')} encontrado em:`, obj)
+        console.log(`Nenhum dos campos ${possibleFields.join(', ')} encontrado em:`, Object.keys(obj))
         return null
       }
 
@@ -155,32 +168,38 @@ serve(async (req) => {
       console.log('type:', type)
       console.log('date_time:', date_time)
 
-      // Validar campos obrigatórios
-      if (!remoteJid && !message) {
-        console.error('ERRO: Campos obrigatórios não encontrados')
-        console.error('Campos disponíveis no messageData:', Object.keys(messageData))
+      // Para a rota /trainerai, pelo menos um dos campos deve estar presente
+      const hasValidData = remoteJid || message
+      
+      if (!hasValidData) {
+        console.error('ERRO: Nenhum dado válido encontrado')
+        console.error('Campos disponíveis no messageData:', messageData ? Object.keys(messageData) : 'nenhum')
+        console.error('Body original:', body)
         
+        // Log detalhado do erro com source SEMPRE DEFINIDO
         await supabaseClient
           .from('webhook_logs')
           .insert({
-            source: 'trainerai_whatsapp_n8n',
+            source: 'trainerai_whatsapp_n8n', // SOURCE FIXO PARA ESSA ROTA
             event_type: 'validation_error',
             payload: {
-              error: 'Missing required fields',
-              available_fields: Object.keys(messageData),
+              error: 'No valid data found',
+              available_fields: messageData ? Object.keys(messageData) : [],
               full_payload: body,
-              processed_data: messageData
+              processed_data: messageData,
+              url_pathname: url.pathname,
+              debug_timestamp: new Date().toISOString()
             },
             processed: false,
-            error_message: 'Missing required fields: remoteJid/from/phone and message/content/text'
+            error_message: 'Missing required data: no remoteJid/from/phone or message/content/text found'
           })
         
         return new Response(
           JSON.stringify({ 
-            error: 'Missing required fields: remoteJid/from/phone and message/content/text',
-            received_fields: Object.keys(messageData),
-            full_payload: body,
-            processed_data: messageData
+            error: 'No valid data found',
+            details: 'Expected at least remoteJid/from/phone or message/content/text',
+            received_fields: messageData ? Object.keys(messageData) : [],
+            full_payload: body
           }),
           { 
             status: 400,
@@ -218,7 +237,8 @@ serve(async (req) => {
             body_type: Array.isArray(body) ? 'array' : typeof body,
             fields_found: messageData ? Object.keys(messageData) : [],
             has_message: !!message,
-            has_remoteJid: !!remoteJid
+            has_remoteJid: !!remoteJid,
+            body_length: bodyText.length
           }
         },
         processed: false
@@ -244,13 +264,13 @@ serve(async (req) => {
           }
         )
       } else {
-        console.log('✅ Log salvo:', insertLogData)
+        console.log('✅ Log salvo com sucesso:', insertLogData)
       }
 
       // Salvar na tabela ai_conversations se tiver mensagem E remoteJid
       let conversationData = null
       if (message && remoteJid) {
-        console.log('Salvando conversa...')
+        console.log('Salvando conversa na tabela ai_conversations...')
         
         const { data: convData, error: conversationError } = await supabaseClient
           .from('ai_conversations')
@@ -274,19 +294,27 @@ serve(async (req) => {
         if (conversationError) {
           console.error('ERRO ao salvar conversa:', conversationError)
         } else {
-          console.log('✅ Conversa salva:', convData)
+          console.log('✅ Conversa salva com sucesso:', convData)
           conversationData = convData
         }
       } else {
-        console.log('Não salvando conversa - faltam dados obrigatórios (message ou remoteJid)')
+        console.log('Não salvando conversa - faltam dados obrigatórios')
+        console.log('Tem message?', !!message)
+        console.log('Tem remoteJid?', !!remoteJid)
       }
 
       // Marcar webhook como processado
       if (insertLogData && insertLogData[0]) {
-        await supabaseClient
+        const { error: updateError } = await supabaseClient
           .from('webhook_logs')
           .update({ processed: true })
           .eq('id', insertLogData[0].id)
+        
+        if (updateError) {
+          console.error('ERRO ao marcar webhook como processado:', updateError)
+        } else {
+          console.log('✅ Webhook marcado como processado')
+        }
       }
 
       console.log('=== WEBHOOK PROCESSADO COM SUCESSO ===')
@@ -320,7 +348,8 @@ serve(async (req) => {
         debug_info: {
           original_payload_type: Array.isArray(body) ? 'array' : typeof body,
           fields_extracted: messageData ? Object.keys(messageData) : [],
-          authentication: 'success'
+          authentication: 'success',
+          body_size: bodyText.length
         }
       }
 
@@ -333,7 +362,7 @@ serve(async (req) => {
       )
     }
 
-    // Handle existing webhook functionality
+    // Handle existing webhook functionality for other routes
     const body = await req.json()
     const { source, eventType, data, userId } = body
 
@@ -390,22 +419,26 @@ serve(async (req) => {
     console.error('Error:', error)
     console.error('Stack:', error.stack)
     
-    // Log de erro geral com source fixo
+    // Log de erro geral com source fixo para rota trainerai
     try {
       const supabaseClient = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
       )
       
+      const url = new URL(req.url)
+      const source = url.pathname.endsWith('/trainerai') ? 'trainerai_whatsapp_n8n' : 'webhook_general_error'
+      
       await supabaseClient
         .from('webhook_logs')
         .insert({
-          source: 'trainerai_whatsapp_n8n',
+          source: source,
           event_type: 'system_error',
           payload: {
             error: error.message,
             stack: error.stack,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            url_pathname: url.pathname
           },
           processed: false,
           error_message: `System error: ${error.message}`
