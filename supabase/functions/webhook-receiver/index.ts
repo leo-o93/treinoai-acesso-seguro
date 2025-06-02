@@ -22,9 +22,6 @@ serve(async (req) => {
     // Handle TrainerAI webhook from n8n
     if (url.pathname.endsWith('/trainerai')) {
       console.log('=== WEBHOOK TRAINERAI RECEBIDO ===')
-      console.log('URL pathname:', url.pathname)
-      console.log('Método:', req.method)
-      console.log('Headers:', Object.fromEntries(req.headers.entries()))
       
       let body;
       try {
@@ -66,25 +63,25 @@ serve(async (req) => {
         )
       }
 
-      // Extrair dados da nova estrutura do n8n
-      const message = body.message
+      // Extrair dados das mensagens
+      const userMessage = body.userMessage || body.message
+      const aiResponse = body.aiResponse || body.response
       const remoteJid = body.remoteJid
       const instancia = body.instancia
-      const conversation = body.conversation
 
       console.log('=== DADOS EXTRAÍDOS ===')
-      console.log('Message:', message)
+      console.log('User Message:', userMessage)
+      console.log('AI Response:', aiResponse)
       console.log('RemoteJid:', remoteJid)
       console.log('Instancia:', instancia)
-      console.log('Conversation:', conversation)
 
       // Validar campos obrigatórios
-      if (!message || !remoteJid) {
+      if (!userMessage || !remoteJid) {
         console.error('Campos obrigatórios ausentes')
         return new Response(
           JSON.stringify({ 
-            error: 'Missing required fields: message and remoteJid',
-            received: { message: !!message, remoteJid: !!remoteJid }
+            error: 'Missing required fields: userMessage and remoteJid',
+            received: { userMessage: !!userMessage, remoteJid: !!remoteJid }
           }),
           { 
             status: 400,
@@ -93,113 +90,110 @@ serve(async (req) => {
         )
       }
 
-      // Extrair telefone
+      // Extrair telefone e categorizar mensagem
       const phone = remoteJid.replace('@c.us', '').replace('@s.whatsapp.net', '')
-      console.log('Phone extraído:', phone)
+      const sessionId = `whatsapp_${phone}`
+      
+      // Categorizar tipo de pergunta baseado no conteúdo
+      const messageCategory = categorizeMessage(userMessage)
+      
+      console.log('Phone extracted:', phone)
+      console.log('Session ID:', sessionId)
+      console.log('Message Category:', messageCategory)
 
-      // Log do webhook
-      const { data: logData, error: logError } = await supabaseClient
-        .from('webhook_logs')
+      // Salvar mensagem do usuário
+      const { data: conversationData, error: conversationError } = await supabaseClient
+        .from('ai_conversations')
         .insert({
-          source: 'trainerai_whatsapp_n8n',
-          event_type: 'message_received',
-          payload: {
-            message,
+          session_id: sessionId,
+          message_type: 'user',
+          content: userMessage,
+          whatsapp_phone: phone,
+          user_id: null,
+          context: {
+            source: 'whatsapp',
             remoteJid,
             instancia,
-            conversation,
-            phone,
+            category: messageCategory,
+            ai_response: aiResponse,
             processed_at: new Date().toISOString()
-          },
-          processed: false
+          }
         })
         .select()
         .single()
 
-      if (logError) {
-        console.error('Erro ao salvar log:', logError)
+      if (conversationError) {
+        console.error('Erro ao salvar conversa:', conversationError)
+        throw conversationError
       }
 
-      // Chamar função de processamento de IA
-      try {
-        console.log('Chamando função de processamento de IA...')
-        
-        const { data: aiResult, error: aiError } = await supabaseClient.functions.invoke(
-          'process-whatsapp-message',
-          {
-            body: {
-              message,
-              remoteJid,
-              instancia,
-              conversation
-            }
-          }
-        )
+      console.log('Conversa salva:', conversationData)
 
-        if (aiError) {
-          console.error('Erro na função de IA:', aiError)
-          throw aiError
-        }
+      // Salvar resposta da IA se fornecida
+      if (aiResponse) {
+        const { data: responseData, error: responseError } = await supabaseClient
+          .from('ai_responses')
+          .insert({
+            session_id: sessionId,
+            conversation_id: conversationData.id,
+            response: aiResponse,
+            operator_id: null
+          })
+          .select()
+          .single()
 
-        console.log('Resultado da IA:', aiResult)
-
-        // Marcar webhook como processado
-        if (logData) {
+        if (responseError) {
+          console.error('Erro ao salvar resposta:', responseError)
+        } else {
+          console.log('Resposta da IA salva:', responseData)
+          
+          // Marcar conversa como respondida
           await supabaseClient
-            .from('webhook_logs')
+            .from('ai_conversations')
             .update({ 
-              processed: true,
-              payload: {
-                ...logData.payload,
-                ai_result: aiResult
-              }
+              response_status: 'responded',
+              updated_at: new Date().toISOString()
             })
-            .eq('id', logData.id)
+            .eq('id', conversationData.id)
         }
-
-        // Retornar resposta para o n8n enviar via WhatsApp
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: 'Mensagem processada com sucesso',
-            phone: phone,
-            response: aiResult?.message || 'Resposta processada',
-            ai_result: aiResult,
-            webhook_log_id: logData?.id
-          }),
-          { 
-            status: 200,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
-
-      } catch (processError) {
-        console.error('Erro no processamento da IA:', processError)
-        
-        // Marcar webhook com erro
-        if (logData) {
-          await supabaseClient
-            .from('webhook_logs')
-            .update({ 
-              processed: false,
-              error_message: `AI processing error: ${processError.message}`
-            })
-            .eq('id', logData.id)
-        }
-
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Erro no processamento da IA',
-            details: processError.message,
-            phone: phone
-          }),
-          { 
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        )
       }
+
+      // Log do webhook
+      await supabaseClient
+        .from('webhook_logs')
+        .insert({
+          source: 'trainerai_whatsapp_n8n',
+          event_type: 'message_processed',
+          payload: {
+            userMessage,
+            aiResponse,
+            remoteJid,
+            instancia,
+            phone,
+            category: messageCategory,
+            processed_at: new Date().toISOString()
+          },
+          processed: true
+        })
+
+      // Retornar resposta de sucesso
+      const response = {
+        success: true,
+        phone: phone,
+        conversation_id: conversationData.id,
+        category: messageCategory,
+        timestamp: new Date().toISOString()
+      }
+
+      console.log('Resposta final:', response)
+
+      return new Response(
+        JSON.stringify(response),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
     }
 
     // Handle existing webhook functionality for other routes
@@ -289,7 +283,6 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        stack: error.stack,
         timestamp: new Date().toISOString()
       }),
       { 
@@ -299,6 +292,29 @@ serve(async (req) => {
     )
   }
 })
+
+// Função para categorizar mensagens
+function categorizeMessage(message: string): string {
+  const lowerMessage = message.toLowerCase()
+  
+  if (lowerMessage.includes('treino') || lowerMessage.includes('exerc') || lowerMessage.includes('academia')) {
+    return 'treino'
+  }
+  
+  if (lowerMessage.includes('dieta') || lowerMessage.includes('alimenta') || lowerMessage.includes('nutri') || lowerMessage.includes('comida')) {
+    return 'nutricao'
+  }
+  
+  if (lowerMessage.includes('agenda') || lowerMessage.includes('horario') || lowerMessage.includes('quando') || lowerMessage.includes('calendario')) {
+    return 'agendamento'
+  }
+  
+  if (lowerMessage.includes('strava') || lowerMessage.includes('atividade') || lowerMessage.includes('corrida') || lowerMessage.includes('performance')) {
+    return 'strava'
+  }
+  
+  return 'geral'
+}
 
 async function processStravaData(supabaseClient: any, userId: string, data: any) {
   const { error } = await supabaseClient

@@ -135,7 +135,7 @@ export const getTrainerAIMessages = async (limit = 50) => {
   return data
 }
 
-// Atualizar função de stats para incluir mensagens WhatsApp
+// Atualizar função para incluir insights das categorias WhatsApp
 export const getTrainerAIStats = async () => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -145,14 +145,14 @@ export const getTrainerAIStats = async () => {
 
   const { data: todayData, error: todayError } = await supabase
     .from('ai_conversations')
-    .select('id')
+    .select('id, context')
     .eq('message_type', 'user')
     .like('session_id', 'whatsapp_%')
     .gte('created_at', today.toISOString())
 
   const { data: weekData, error: weekError } = await supabase
     .from('ai_conversations')
-    .select('id')
+    .select('id, context')
     .eq('message_type', 'user')
     .like('session_id', 'whatsapp_%')
     .gte('created_at', oneWeekAgo.toISOString())
@@ -160,9 +160,26 @@ export const getTrainerAIStats = async () => {
   if (todayError) throw todayError
   if (weekError) throw weekError
 
+  // Analisar categorias da semana
+  const categoryStats = {
+    treino: 0,
+    nutricao: 0,
+    agendamento: 0,
+    strava: 0,
+    geral: 0
+  }
+
+  weekData.forEach(msg => {
+    const category = msg.context?.category || 'geral'
+    if (category in categoryStats) {
+      categoryStats[category as keyof typeof categoryStats]++
+    }
+  })
+
   return {
     todayMessages: todayData.length,
-    weekMessages: weekData.length
+    weekMessages: weekData.length,
+    categoryStats
   }
 }
 
@@ -290,7 +307,6 @@ export const getConversationsBySession = async (sessionId: string) => {
   return data
 }
 
-// Atualizar stats do operador para incluir WhatsApp
 export const getOperatorStats = async () => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)

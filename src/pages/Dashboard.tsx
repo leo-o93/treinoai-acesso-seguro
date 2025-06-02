@@ -11,6 +11,7 @@ import UpcomingEvents from "@/components/dashboard/UpcomingEvents";
 import WebhookMonitor from "@/components/dashboard/WebhookMonitor";
 import AIToolsMonitor from "@/components/dashboard/AIToolsMonitor";
 import TrainerAIStats from "@/components/dashboard/TrainerAIStats";
+import WhatsAppInsights from "@/components/dashboard/WhatsAppInsights";
 import N8nWebhookMonitor from "@/components/dashboard/N8nWebhookMonitor";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -131,8 +132,9 @@ const Dashboard: React.FC = () => {
               <UpcomingEvents />
             </div>
 
-            {/* Coluna da direita - Monitoramento */}
+            {/* Coluna da direita - Insights e monitoramento */}
             <div className="lg:col-span-1 space-y-6">
+              <WhatsAppInsights />
               <TrainerAIStats />
               <AIToolsMonitor />
             </div>
