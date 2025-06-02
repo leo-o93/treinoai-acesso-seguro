@@ -2,8 +2,8 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { SignIn } from '@/components/auth/SignIn'
-import { AuthLayout } from '@/components/auth/AuthLayout'
+import SignIn from '@/components/auth/SignIn'
+import AuthLayout from '@/components/auth/AuthLayout'
 
 const Login = () => {
   const { user, loading } = useAuth()

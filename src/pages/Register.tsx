@@ -2,8 +2,8 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { SignUp } from '@/components/auth/SignUp'
-import { AuthLayout } from '@/components/auth/AuthLayout'
+import SignUp from '@/components/auth/SignUp'
+import AuthLayout from '@/components/auth/AuthLayout'
 
 const Register = () => {
   const { user, loading } = useAuth()

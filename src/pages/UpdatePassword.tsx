@@ -2,7 +2,7 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { AuthLayout } from '@/components/auth/AuthLayout'
+import AuthLayout from '@/components/auth/AuthLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 const UpdatePassword = () => {

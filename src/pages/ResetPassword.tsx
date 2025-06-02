@@ -2,10 +2,10 @@
 import React from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { ResetPassword as ResetPasswordComponent } from '@/components/auth/ResetPassword'
-import { AuthLayout } from '@/components/auth/AuthLayout'
+import ResetPassword from '@/components/auth/ResetPassword'
+import AuthLayout from '@/components/auth/AuthLayout'
 
-const ResetPassword = () => {
+const ResetPasswordPage = () => {
   const { user, loading } = useAuth()
 
   if (loading) {
@@ -22,9 +22,9 @@ const ResetPassword = () => {
 
   return (
     <AuthLayout>
-      <ResetPasswordComponent />
+      <ResetPassword />
     </AuthLayout>
   )
 }
 
-export default ResetPassword
+export default ResetPasswordPage
