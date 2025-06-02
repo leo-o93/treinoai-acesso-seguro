@@ -1,3 +1,4 @@
+
 import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -57,9 +58,9 @@ const DataVisualization: React.FC<DataVisualizationProps> = ({ data }) => {
   ]
 
   const weeklyEventsData = calendarEvents
-    .filter(event => new Date(event.startTime) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+    .filter(event => new Date(event.start_time) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
     .reduce((acc, event) => {
-      const day = new Date(event.startTime).toLocaleDateString('pt-BR', { weekday: 'short' })
+      const day = new Date(event.start_time).toLocaleDateString('pt-BR', { weekday: 'short' })
       const existing = acc.find(item => item.day === day)
       
       if (existing) {
@@ -164,9 +165,9 @@ const DataVisualization: React.FC<DataVisualizationProps> = ({ data }) => {
           {calendarEvents.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {calendarEvents.slice(0, 8).map((event) => (
-                <div key={event.id} className={`p-3 rounded-lg border ${getEventColor(event.type)}`}>
+                <div key={event.id} className={`p-3 rounded-lg border ${getEventColor(event.event_type)}`}>
                   <div className="flex items-start gap-2 mb-2">
-                    {getEventIcon(event.type)}
+                    {getEventIcon(event.event_type)}
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium text-sm truncate">{event.title}</h4>
                       {event.description && (
@@ -178,7 +179,7 @@ const DataVisualization: React.FC<DataVisualizationProps> = ({ data }) => {
                   <div className="space-y-1 text-xs">
                     <div className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      <span>{format(new Date(event.startTime), 'dd/MM HH:mm', { locale: ptBR })}</span>
+                      <span>{format(new Date(event.start_time), 'dd/MM HH:mm', { locale: ptBR })}</span>
                     </div>
                     
                     {event.location && (
@@ -189,8 +190,8 @@ const DataVisualization: React.FC<DataVisualizationProps> = ({ data }) => {
                     )}
                     
                     <Badge variant="outline" className="text-xs">
-                      {event.type === 'workout' ? 'Treino' : 
-                       event.type === 'meal' ? 'Refeição' : 'Evento'}
+                      {event.event_type === 'workout' ? 'Treino' : 
+                       event.event_type === 'meal' ? 'Refeição' : 'Evento'}
                     </Badge>
                   </div>
                 </div>
