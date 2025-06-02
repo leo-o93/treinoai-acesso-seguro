@@ -11,6 +11,8 @@ import PlanGenerationCard from '@/components/dashboard/PlanGenerationCard'
 import PerformanceAnalytics from '@/components/dashboard/PerformanceAnalytics'
 import DetailedTrainingPlan from '@/components/dashboard/DetailedTrainingPlan'
 import DetailedNutritionPlan from '@/components/dashboard/DetailedNutritionPlan'
+import WeeklyFeedbackCard from '@/components/dashboard/WeeklyFeedbackCard'
+import PerformanceInsights from '@/components/dashboard/PerformanceInsights'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 const Dashboard: React.FC = () => {
@@ -82,15 +84,18 @@ const Dashboard: React.FC = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
             <TabsTrigger value="analytics">Análises</TabsTrigger>
+            <TabsTrigger value="feedback">Feedback</TabsTrigger>
             <TabsTrigger value="chat">TrainerAI</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <StatsCard />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <StatsCard />
+            </div>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <RecentActivities />
@@ -103,10 +108,13 @@ const Dashboard: React.FC = () => {
               />
             </div>
 
-            <ActivePlans 
-              trainingPlan={trainingPlan}
-              nutritionPlan={nutritionPlan}
-            />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <ActivePlans 
+                trainingPlan={trainingPlan}
+                nutritionPlan={nutritionPlan}
+              />
+              <PerformanceInsights />
+            </div>
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-6">
@@ -118,6 +126,10 @@ const Dashboard: React.FC = () => {
 
           <TabsContent value="analytics" className="space-y-6">
             <PerformanceAnalytics />
+          </TabsContent>
+
+          <TabsContent value="feedback" className="space-y-6">
+            <WeeklyFeedbackCard userProfile={profile} />
           </TabsContent>
 
           <TabsContent value="chat" className="space-y-6">
