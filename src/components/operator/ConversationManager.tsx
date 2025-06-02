@@ -13,6 +13,7 @@ import { getTrainerAIConversations, getOperatorStats } from '@/lib/database'
 import { ConversationList } from './ConversationList'
 import { ConversationDetail } from './ConversationDetail'
 import { OperatorStats } from './OperatorStats'
+import { TestButton } from './TestButton'
 import { toast } from 'sonner'
 
 const ConversationManager: React.FC = () => {
@@ -108,6 +109,9 @@ const ConversationManager: React.FC = () => {
           </Badge>
         </div>
       </div>
+
+      {/* Test Button */}
+      <TestButton />
 
       {/* Stats Cards */}
       {stats && <OperatorStats stats={stats} />}

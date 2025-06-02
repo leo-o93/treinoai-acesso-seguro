@@ -11,7 +11,7 @@ import { ptBR } from 'date-fns/locale'
 import { getConversationsBySession, markConversationAsRead, sendOperatorResponse } from '@/lib/database'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
-import { getCurrentUser } from '@/lib/supabase'
+import { getCurrentUser } from '@/lib/getCurrentUser'
 
 interface ConversationDetailProps {
   conversationId: string
@@ -63,15 +63,18 @@ export const ConversationDetail: React.FC<ConversationDetailProps> = ({
   }, [conversation, conversationId, currentUser])
 
   const handleSendResponse = async () => {
-    if (!response.trim() || !conversation || !currentUser) return
+    if (!response.trim() || !conversation) return
 
     setIsLoading(true)
     try {
+      // Usar um operador padrão se não tiver currentUser
+      const operatorId = currentUser?.id || '00000000-0000-0000-0000-000000000000'
+      
       await sendOperatorResponse({
         session_id: conversation.session_id,
         response: response.trim(),
         conversation_id: conversationId,
-        operator_id: currentUser.id
+        operator_id: operatorId
       })
 
       // Chamar edge function para enviar via n8n

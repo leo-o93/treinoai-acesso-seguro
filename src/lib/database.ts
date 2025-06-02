@@ -294,6 +294,7 @@ export const getOperatorStats = async () => {
   const oneWeekAgo = new Date()
   oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
 
+  // Buscar sem filtros de user_id primeiro para teste
   const { data: unreadCount, error: unreadError } = await supabase
     .from('ai_conversations')
     .select('id')
