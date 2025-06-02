@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -26,18 +25,18 @@ serve(async (req) => {
       const expectedKey = Deno.env.get('TRAINERAI_WEBHOOK_KEY')
       
       console.log('=== WEBHOOK TRAINERAI DEBUG START ===')
+      console.log('URL pathname:', url.pathname)
+      console.log('Método:', req.method)
       console.log('Headers recebidos:', Object.fromEntries(req.headers.entries()))
       console.log('x-webhook-key recebido:', authHeader)
       console.log('x-webhook-key esperado:', expectedKey ? 'CONFIGURADO' : 'NÃO CONFIGURADO')
-      console.log('URL pathname:', url.pathname)
-      console.log('Método:', req.method)
       
       if (authHeader !== expectedKey) {
         console.error('ERRO: Webhook key não confere!')
         console.error('Recebido:', authHeader)
         console.error('Esperado:', expectedKey)
         
-        // Log do erro no banco
+        // Log do erro no banco com source fixo
         await supabaseClient
           .from('webhook_logs')
           .insert({
@@ -71,15 +70,16 @@ serve(async (req) => {
         console.log('Body RAW recebido:', bodyText)
         
         if (!bodyText.trim()) {
-          throw new Error('Body vazio')
+          console.log('Body vazio - criando payload de debug')
+          body = {}
+        } else {
+          body = JSON.parse(bodyText)
+          console.log('Body PARSED:', JSON.stringify(body, null, 2))
         }
-        
-        body = JSON.parse(bodyText)
-        console.log('Body PARSED:', JSON.stringify(body, null, 2))
       } catch (parseError) {
         console.error('ERRO ao fazer parse do JSON:', parseError)
         
-        // Log do erro de parsing
+        // Log do erro de parsing com source fixo
         await supabaseClient
           .from('webhook_logs')
           .insert({
@@ -198,10 +198,10 @@ serve(async (req) => {
       console.log('Phone extraído:', phone)
       console.log('=== SALVANDO NO BANCO ===')
 
-      // Log detalhado do webhook
+      // Log detalhado do webhook - SEMPRE COM SOURCE FIXO
       const logData = {
-        source: 'trainerai_whatsapp_n8n',
-        event_type: 'message_received',
+        source: 'trainerai_whatsapp_n8n', // SOURCE FIXO PARA ESSA ROTA
+        event_type: message ? 'message_received' : 'debug_payload',
         payload: {
           original_payload: body,
           processed_data: {
@@ -216,11 +216,15 @@ serve(async (req) => {
             url_pathname: url.pathname,
             timestamp: new Date().toISOString(),
             body_type: Array.isArray(body) ? 'array' : typeof body,
-            fields_found: Object.keys(messageData)
+            fields_found: messageData ? Object.keys(messageData) : [],
+            has_message: !!message,
+            has_remoteJid: !!remoteJid
           }
         },
         processed: false
       }
+
+      console.log('Dados do log a serem salvos:', JSON.stringify(logData, null, 2))
 
       const { data: insertLogData, error: logError } = await supabaseClient
         .from('webhook_logs')
@@ -229,13 +233,23 @@ serve(async (req) => {
 
       if (logError) {
         console.error('ERRO ao salvar log:', logError)
+        return new Response(
+          JSON.stringify({ 
+            error: 'Database error',
+            details: logError.message
+          }),
+          { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
       } else {
         console.log('✅ Log salvo:', insertLogData)
       }
 
-      // Salvar na tabela ai_conversations se tiver mensagem
+      // Salvar na tabela ai_conversations se tiver mensagem E remoteJid
       let conversationData = null
-      if (message) {
+      if (message && remoteJid) {
         console.log('Salvando conversa...')
         
         const { data: convData, error: conversationError } = await supabaseClient
@@ -263,6 +277,8 @@ serve(async (req) => {
           console.log('✅ Conversa salva:', convData)
           conversationData = convData
         }
+      } else {
+        console.log('Não salvando conversa - faltam dados obrigatórios (message ou remoteJid)')
       }
 
       // Marcar webhook como processado
@@ -286,7 +302,9 @@ serve(async (req) => {
           processed_at: new Date().toISOString(),
           message_content: message,
           message_type: type,
-          webhook_log_id: insertLogData?.[0]?.id
+          webhook_log_id: insertLogData?.[0]?.id,
+          has_message: !!message,
+          has_remoteJid: !!remoteJid
         },
         webhook_info: {
           source: 'trainerai_whatsapp_n8n',
@@ -301,7 +319,7 @@ serve(async (req) => {
         },
         debug_info: {
           original_payload_type: Array.isArray(body) ? 'array' : typeof body,
-          fields_extracted: Object.keys(messageData),
+          fields_extracted: messageData ? Object.keys(messageData) : [],
           authentication: 'success'
         }
       }
@@ -372,8 +390,13 @@ serve(async (req) => {
     console.error('Error:', error)
     console.error('Stack:', error.stack)
     
-    // Log de erro geral
+    // Log de erro geral com source fixo
     try {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+      )
+      
       await supabaseClient
         .from('webhook_logs')
         .insert({
