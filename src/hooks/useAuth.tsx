@@ -7,4 +7,4 @@ export { useAuthState } from './auth/useAuthState'
 export type { AuthContextType } from './auth/types'
 
 // Keep the default export for backwards compatibility
-export default { AuthProvider }
+export default { AuthProvider: AuthProvider }
