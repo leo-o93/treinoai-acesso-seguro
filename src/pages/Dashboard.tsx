@@ -1,8 +1,7 @@
-
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Navbar } from '@/components/layout/Navbar'
-import { CustomizableDashboard } from '@/components/dashboard/CustomizableDashboard'
+import CustomizableDashboard from '@/components/dashboard/CustomizableDashboard'
 
 const Dashboard = () => {
   const { user, loading } = useAuth()
