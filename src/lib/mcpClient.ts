@@ -118,5 +118,39 @@ export const mcpAI = {
     mcpCall('AI-AGENT', 'gerar_recomendacoes', {}),
   
   reavaliar: (feedback: string) =>
-    mcpCall('AI-AGENT', 'reavaliar', { feedback })
+    mcpCall('AI-AGENT', 'reavaliar', { feedback }),
+
+  // Novas funções para IA avançada
+  processarMensagemIA: (message: string, userId: string, sessionId?: string) =>
+    mcpCall('AI-AGENT-OPENAI', 'process_message', { message, userId, sessionId }),
+  
+  analisarProgresso: (userId: string) =>
+    mcpCall('AI-AGENT-OPENAI', 'analyze_progress', { userId }),
+  
+  gerarInsightsPersonalizados: (userId: string) =>
+    mcpCall('AI-AGENT-OPENAI', 'generate_insights', { userId }),
+  
+  otimizarPlanos: (userId: string, feedback: string) =>
+    mcpCall('AI-AGENT-OPENAI', 'optimize_plans', { userId, feedback })
+}
+
+// Função auxiliar para chamar a nova Edge Function diretamente
+export const callOpenAIAgent = async (message: string, userId: string, sessionId?: string) => {
+  try {
+    const { supabase } = await import('@/integrations/supabase/client')
+    
+    const { data, error } = await supabase.functions.invoke('ai-agent-openai', {
+      body: {
+        message,
+        userId,
+        sessionId: sessionId || `web-${userId}`
+      }
+    })
+
+    if (error) throw error
+    return data
+  } catch (error) {
+    console.error('Erro ao chamar OpenAI Agent:', error)
+    throw error
+  }
 }

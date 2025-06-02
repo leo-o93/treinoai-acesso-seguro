@@ -4,28 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { MessageCircle, Send, Bot, User, ThumbsUp, ThumbsDown, RefreshCw } from 'lucide-react'
-import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/integrations/supabase/client'
+import { MessageCircle, Send, Bot, User, RefreshCw, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { toast } from '@/hooks/use-toast'
-
-interface Message {
-  id: string
-  content: string
-  type: 'user' | 'ai'
-  timestamp: Date
-  feedback?: 'positive' | 'negative'
-}
+import { useAIChat } from '@/hooks/useAIChat'
+import SmartSuggestions from './ai/SmartSuggestions'
 
 const AIChat: React.FC = () => {
-  const { user } = useAuth()
-  const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [isConnected, setIsConnected] = useState(true)
+  const [showSuggestions, setShowSuggestions] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  const { messages, isLoading, sendMessage, clearMessages } = useAIChat()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -35,131 +25,31 @@ const AIChat: React.FC = () => {
     scrollToBottom()
   }, [messages])
 
-  // Load recent messages on component mount
-  useEffect(() => {
-    loadRecentMessages()
-  }, [user])
-
-  const loadRecentMessages = async () => {
-    if (!user) return
-
-    try {
-      const { data, error } = await supabase
-        .from('ai_conversations')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (error) throw error
-
-      const formattedMessages = data.reverse().map(msg => ({
-        id: msg.id,
-        content: msg.content,
-        type: msg.message_type as 'user' | 'ai',
-        timestamp: new Date(msg.created_at)
-      }))
-
-      setMessages(formattedMessages)
-    } catch (error) {
-      console.error('Erro ao carregar mensagens:', error)
-    }
-  }
-
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !user || isLoading) return
-
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      content: inputMessage,
-      type: 'user',
-      timestamp: new Date()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setInputMessage('')
-    setIsLoading(true)
-
-    try {
-      // Save user message to database
-      await supabase.from('ai_conversations').insert({
-        user_id: user.id,
-        session_id: `web-${user.id}`,
-        content: inputMessage,
-        message_type: 'user',
-        context: {
-          source: 'web_dashboard',
-          timestamp: new Date().toISOString()
-        }
-      })
-
-      // Simulate AI response (in real implementation, this would call your AI service)
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: `ai-${Date.now()}`,
-          content: generateAIResponse(inputMessage),
-          type: 'ai',
-          timestamp: new Date()
-        }
-
-        setMessages(prev => [...prev, aiResponse])
-        setIsLoading(false)
-
-        // Save AI response to database
-        supabase.from('ai_conversations').insert({
-          user_id: user.id,
-          session_id: `web-${user.id}`,
-          content: aiResponse.content,
-          message_type: 'ai',
-          context: {
-            source: 'web_dashboard',
-            timestamp: new Date().toISOString()
-          }
-        })
-      }, 1500)
-
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error)
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível enviar a mensagem',
-        variant: 'destructive'
-      })
-      setIsLoading(false)
-    }
-  }
-
-  const generateAIResponse = (userMessage: string): string => {
-    // Simple AI response simulation - in production, this would call your actual AI service
-    const responses = [
-      "Ótima pergunta! Com base no seu histórico, recomendo focar em treinos de resistência esta semana.",
-      "Analisando seus dados, vejo que você está progredindo bem! Que tal aumentarmos a intensidade gradualmente?",
-      "Perfeito! Vou ajustar seu plano de treino baseado nessa informação.",
-      "Entendi! Vou criar uma sugestão personalizada para você. Pode levar alguns minutos.",
-      "Excelente feedback! Isso me ajuda a personalizar melhor suas recomendações."
-    ]
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return
     
-    return responses[Math.floor(Math.random() * responses.length)]
+    const message = inputMessage.trim()
+    setInputMessage('')
+    setShowSuggestions(false)
+    
+    await sendMessage(message)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      sendMessage()
+      handleSendMessage()
     }
   }
 
-  const provideFeedback = async (messageId: string, feedback: 'positive' | 'negative') => {
-    setMessages(prev => 
-      prev.map(msg => 
-        msg.id === messageId ? { ...msg, feedback } : msg
-      )
-    )
+  const handleSuggestionClick = (suggestion: string) => {
+    setInputMessage(suggestion)
+    setShowSuggestions(false)
+  }
 
-    toast({
-      title: 'Feedback enviado',
-      description: 'Obrigado pelo seu feedback! Isso nos ajuda a melhorar.'
-    })
+  const handleClearChat = () => {
+    clearMessages()
+    setShowSuggestions(true)
   }
 
   return (
@@ -167,20 +57,23 @@ const AIChat: React.FC = () => {
       <CardHeader className="flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-emerald-500" />
-            TrainerAI - Assistente Pessoal
+            <div className="relative">
+              <MessageCircle className="w-5 h-5 text-emerald-500" />
+              <Sparkles className="w-3 h-3 text-yellow-400 absolute -top-1 -right-1" />
+            </div>
+            TrainerAI - Assistente Inteligente
           </CardTitle>
           <div className="flex items-center gap-2">
-            <Badge variant={isConnected ? 'default' : 'destructive'} className="bg-green-500">
-              {isConnected ? 'Online' : 'Offline'}
+            <Badge variant="default" className="bg-emerald-500">
+              IA Avançada
             </Badge>
-            <Button size="sm" variant="outline" onClick={loadRecentMessages}>
+            <Button size="sm" variant="outline" onClick={handleClearChat}>
               <RefreshCw className="w-3 h-3" />
             </Button>
           </div>
         </div>
         <p className="text-sm text-gray-600">
-          Converse com seu treinador virtual para ajustes em tempo real
+          Assistente fitness com IA real - personalizado com seus dados
         </p>
       </CardHeader>
 
@@ -188,10 +81,20 @@ const AIChat: React.FC = () => {
         {/* Messages Container */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Bot className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p>Olá! Sou seu TrainerAI 🤖</p>
-              <p className="text-sm">Como posso ajudar você hoje?</p>
+            <div className="text-center py-8">
+              <div className="relative w-16 h-16 mx-auto mb-4">
+                <Bot className="w-full h-full text-emerald-500" />
+                <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-white" />
+                </div>
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2">Olá! Sou seu TrainerAI Avançado 🚀</h3>
+              <p className="text-gray-600 mb-4">
+                Agora com IA real! Tenho acesso aos seus dados e posso oferecer análises personalizadas.
+              </p>
+              <p className="text-sm text-gray-500">
+                Faça perguntas sobre treinos, nutrição, ou escolha uma sugestão abaixo!
+              </p>
             </div>
           ) : (
             messages.map((message) => (
@@ -201,49 +104,30 @@ const AIChat: React.FC = () => {
               >
                 <div
                   className={`
-                    max-w-[80%] rounded-lg px-4 py-2 
+                    max-w-[85%] rounded-lg px-4 py-3 
                     ${message.type === 'user' 
                       ? 'bg-emerald-500 text-white' 
-                      : 'bg-gray-100 text-gray-900'
+                      : 'bg-gradient-to-r from-gray-50 to-blue-50 text-gray-900 border border-gray-200'
                     }
                   `}
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-3">
                     {message.type === 'ai' && (
-                      <Bot className="w-4 h-4 mt-1 text-emerald-500" />
+                      <div className="relative flex-shrink-0">
+                        <Bot className="w-5 h-5 mt-0.5 text-emerald-600" />
+                        <Sparkles className="w-2 h-2 text-yellow-500 absolute -top-0.5 -right-0.5" />
+                      </div>
                     )}
                     {message.type === 'user' && (
-                      <User className="w-4 h-4 mt-1 text-white" />
+                      <User className="w-5 h-5 mt-0.5 text-white flex-shrink-0" />
                     )}
                     <div className="flex-1">
-                      <p className="text-sm">{message.content}</p>
-                      <p className={`text-xs mt-1 opacity-70`}>
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
+                      <p className={`text-xs mt-2 opacity-70`}>
                         {format(message.timestamp, 'HH:mm', { locale: ptBR })}
                       </p>
                     </div>
                   </div>
-                  
-                  {/* Feedback buttons for AI messages */}
-                  {message.type === 'ai' && (
-                    <div className="flex items-center gap-1 mt-2 justify-end">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className={`h-6 w-6 p-0 ${message.feedback === 'positive' ? 'text-green-600' : 'text-gray-400'}`}
-                        onClick={() => provideFeedback(message.id, 'positive')}
-                      >
-                        <ThumbsUp className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className={`h-6 w-6 p-0 ${message.feedback === 'negative' ? 'text-red-600' : 'text-gray-400'}`}
-                        onClick={() => provideFeedback(message.id, 'negative')}
-                      >
-                        <ThumbsDown className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )}
                 </div>
               </div>
             ))
@@ -252,14 +136,18 @@ const AIChat: React.FC = () => {
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="bg-gray-100 rounded-lg px-4 py-2 max-w-[80%]">
-                <div className="flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-emerald-500" />
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+              <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg px-4 py-3 max-w-[85%] border border-gray-200">
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Bot className="w-5 h-5 text-emerald-600" />
+                    <Sparkles className="w-2 h-2 text-yellow-500 absolute -top-0.5 -right-0.5" />
                   </div>
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                  </div>
+                  <span className="text-sm text-gray-600">TrainerAI analisando...</span>
                 </div>
               </div>
             </div>
@@ -268,27 +156,36 @@ const AIChat: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
+        {/* Smart Suggestions */}
+        {showSuggestions && messages.length === 0 && (
+          <div className="border-t p-4 bg-gray-50/50">
+            <SmartSuggestions onSuggestionClick={handleSuggestionClick} />
+          </div>
+        )}
+
         {/* Input Area */}
-        <div className="border-t p-4">
+        <div className="border-t p-4 bg-white">
           <div className="flex items-center gap-2">
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Digite sua mensagem..."
+              placeholder="Converse com seu TrainerAI inteligente..."
               disabled={isLoading}
               className="flex-1"
             />
             <Button
-              onClick={sendMessage}
+              onClick={handleSendMessage}
               disabled={!inputMessage.trim() || isLoading}
               size="sm"
+              className="bg-emerald-500 hover:bg-emerald-600"
             >
               <Send className="w-4 h-4" />
             </Button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Pressione Enter para enviar • Shift+Enter para nova linha
+          <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            IA avançada com acesso aos seus dados • Enter para enviar
           </p>
         </div>
       </CardContent>

@@ -4,36 +4,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { useToast } from '@/hooks/use-toast'
-import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/integrations/supabase/client'
-import { mcpCall, mcpConhecimento, mcpAI } from '@/lib/mcpClient'
-import { Bot, User, Send, Loader2, Brain, Dumbbell, Utensils } from 'lucide-react'
+import { Bot, User, Send, Loader2, Brain, Dumbbell, Utensils, Sparkles } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-
-interface ChatMessage {
-  id: string
-  message: string
-  response?: string
-  message_type: 'user' | 'ai'
-  created_at: string
-}
+import { useAIChat } from '@/hooks/useAIChat'
+import SmartSuggestions from '@/components/dashboard/ai/SmartSuggestions'
 
 const ChatTrainer: React.FC = () => {
-  const { user } = useAuth()
-  const { toast } = useToast()
-  const [messages, setMessages] = useState<ChatMessage[]>([])
   const [inputMessage, setInputMessage] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [sessionId] = useState(() => `chat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`)
+  const [showSuggestions, setShowSuggestions] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (user?.id) {
-      loadChatHistory()
-    }
-  }, [user?.id])
+  
+  const { messages, isLoading, sendMessage } = useAIChat('chat-trainer')
 
   useEffect(() => {
     scrollToBottom()
@@ -43,177 +25,33 @@ const ChatTrainer: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const loadChatHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_history')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: true })
-        .limit(50)
-
-      if (error) throw error
-
-      if (data) {
-        const formattedMessages: ChatMessage[] = data.map(item => ({
-          id: item.id,
-          message: item.message,
-          response: item.response || undefined,
-          message_type: item.message_type as 'user' | 'ai',
-          created_at: item.created_at || new Date().toISOString()
-        }))
-        setMessages(formattedMessages)
-      }
-    } catch (error) {
-      console.error('Erro ao carregar histórico:', error)
-    }
-  }
-
-  const saveMessage = async (message: string, response: string, messageType: 'user' | 'ai') => {
-    try {
-      const { error } = await supabase
-        .from('chat_history')
-        .insert({
-          user_id: user?.id,
-          message: messageType === 'user' ? message : '',
-          response: messageType === 'ai' ? response : '',
-          message_type: messageType,
-          session_id: sessionId
-        })
-
-      if (error) throw error
-    } catch (error) {
-      console.error('Erro ao salvar mensagem:', error)
-    }
-  }
-
-  const getUserProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user?.id)
-        .maybeSingle()
-
-      if (error) throw error
-      return data
-    } catch (error) {
-      console.error('Erro ao buscar perfil:', error)
-      return null
-    }
-  }
-
-  const processAIResponse = async (userMessage: string) => {
-    try {
-      // Buscar perfil do usuário para contexto
-      const profile = await getUserProfile()
-      
-      if (!profile || !profile.objetivo) {
-        return "Olá! Primeiro, preciso que você complete seu perfil com suas informações básicas (objetivo, peso, altura, etc.). Vá para a página de Perfil para começar!"
-      }
-
-      // Preparar contexto para a IA
-      const context = {
-        objetivo: profile.objetivo,
-        peso: profile.peso,
-        altura: profile.altura,
-        frequencia_semanal: profile.frequencia_semanal,
-        alimentos_disponiveis: profile.alimentos_disponiveis,
-        restricoes_alimentares: profile.restricoes_alimentares,
-        experience_level: profile.experience_level
-      }
-
-      // Se a mensagem contém palavras-chave específicas, buscar conhecimento primeiro
-      const keywords = ['como', 'treino', 'exercício', 'dieta', 'alimentação', 'nutrição', 'hipertrofia', 'emagrecimento']
-      const needsKnowledge = keywords.some(keyword => userMessage.toLowerCase().includes(keyword))
-
-      let knowledgeResponse = ''
-      if (needsKnowledge) {
-        const knowledgeResult = await mcpConhecimento.buscarConhecimento(userMessage)
-        if (knowledgeResult.success) {
-          knowledgeResponse = knowledgeResult.data || ''
-        }
-      }
-
-      // Chamar IA principal com contexto e conhecimento
-      const aiInput = {
-        message: userMessage,
-        context: context,
-        knowledge: knowledgeResponse,
-        session_id: sessionId
-      }
-
-      const result = await mcpCall('AI-AGENT', 'process_message', aiInput)
-      
-      if (result.success) {
-        return result.data?.response || result.data || 'Desculpe, não consegui processar sua mensagem.'
-      } else {
-        throw new Error(result.error || 'Erro na comunicação com a IA')
-      }
-    } catch (error) {
-      console.error('Erro ao processar resposta da IA:', error)
-      return 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.'
-    }
-  }
-
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || !user?.id) return
-
-    const userMessage = inputMessage.trim()
+  const handleSendMessage = async () => {
+    if (!inputMessage.trim() || isLoading) return
+    
+    const message = inputMessage.trim()
     setInputMessage('')
-    setLoading(true)
-
-    // Adicionar mensagem do usuário
-    const newUserMessage: ChatMessage = {
-      id: `user_${Date.now()}`,
-      message: userMessage,
-      message_type: 'user',
-      created_at: new Date().toISOString()
-    }
-
-    setMessages(prev => [...prev, newUserMessage])
-    await saveMessage(userMessage, '', 'user')
-
-    try {
-      // Processar resposta da IA
-      const aiResponse = await processAIResponse(userMessage)
-
-      // Adicionar resposta da IA
-      const newAIMessage: ChatMessage = {
-        id: `ai_${Date.now()}`,
-        message: '',
-        response: aiResponse,
-        message_type: 'ai',
-        created_at: new Date().toISOString()
-      }
-
-      setMessages(prev => [...prev, newAIMessage])
-      await saveMessage('', aiResponse, 'ai')
-
-    } catch (error) {
-      console.error('Erro ao enviar mensagem:', error)
-      toast({
-        title: 'Erro',
-        description: 'Não foi possível enviar sua mensagem',
-        variant: 'destructive'
-      })
-    }
-
-    setLoading(false)
+    setShowSuggestions(false)
+    
+    await sendMessage(message)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      sendMessage()
+      handleSendMessage()
     }
   }
 
+  const handleSuggestionClick = (suggestion: string) => {
+    setInputMessage(suggestion)
+    setShowSuggestions(false)
+  }
+
   const quickActions = [
-    { text: 'Gerar plano de treino', icon: Dumbbell },
-    { text: 'Criar dieta personalizada', icon: Utensils },
-    { text: 'Analisar meu progresso', icon: Brain },
-    { text: 'Dicas de exercícios', icon: Dumbbell }
+    { text: 'Gerar plano de treino personalizado', icon: Dumbbell },
+    { text: 'Criar dieta baseada no meu perfil', icon: Utensils },
+    { text: 'Analisar meu progresso com IA', icon: Brain },
+    { text: 'Otimizar meus treinos atuais', icon: Sparkles }
   ]
 
   return (
@@ -221,37 +59,57 @@ const ChatTrainer: React.FC = () => {
       <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm flex-1 flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Bot className="w-6 h-6 text-blue-500" />
-            TrainerAI - Seu Personal Trainer Virtual
+            <div className="relative">
+              <Bot className="w-6 h-6 text-blue-500" />
+              <Sparkles className="w-3 h-3 text-yellow-400 absolute -top-1 -right-1" />
+            </div>
+            TrainerAI - Personal Trainer Virtual Avançado
           </CardTitle>
+          <div className="flex items-center gap-2">
+            <Badge className="bg-blue-500">IA Avançada OpenAI</Badge>
+            <Badge variant="outline" className="text-green-600">Dados Personalizados</Badge>
+          </div>
+          <p className="text-sm text-gray-600">
+            Assistente fitness com IA real, personalizado com seus dados completos
+          </p>
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col">
           {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto space-y-4 mb-4 max-h-96">
+          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
             {messages.length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                <Bot className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                <h3 className="text-lg font-semibold mb-2">Olá! Sou seu TrainerAI</h3>
-                <p>Estou aqui para te ajudar com treinos, dietas e alcançar seus objetivos fitness.</p>
-                <p className="text-sm mt-2">Comece fazendo uma pergunta ou use uma das ações rápidas abaixo!</p>
+                <div className="relative w-20 h-20 mx-auto mb-4">
+                  <Bot className="w-full h-full text-blue-400" />
+                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-white" />
+                  </div>
+                </div>
+                <h3 className="text-xl font-semibold mb-2">Olá! Sou seu TrainerAI Avançado</h3>
+                <p className="mb-2">Agora com IA real da OpenAI e acesso completo aos seus dados!</p>
+                <p className="text-sm mt-2">Posso analisar seus treinos, criar planos personalizados e dar conselhos baseados no seu progresso real.</p>
               </div>
             )}
 
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.message_type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-lg p-3 ${
-                  msg.message_type === 'user' 
+              <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-lg p-4 ${
+                  msg.type === 'user' 
                     ? 'bg-blue-500 text-white' 
-                    : 'bg-gray-100 text-gray-900'
+                    : 'bg-gradient-to-r from-gray-50 to-blue-50 text-gray-900 border border-gray-200'
                 }`}>
-                  <div className="flex items-start gap-2">
-                    {msg.message_type === 'ai' && <Bot className="w-4 h-4 mt-1 text-blue-500" />}
-                    {msg.message_type === 'user' && <User className="w-4 h-4 mt-1" />}
+                  <div className="flex items-start gap-3">
+                    {msg.type === 'ai' && (
+                      <div className="relative flex-shrink-0">
+                        <Bot className="w-5 h-5 mt-0.5 text-blue-600" />
+                        <Sparkles className="w-2 h-2 text-yellow-500 absolute -top-0.5 -right-0.5" />
+                      </div>
+                    )}
+                    {msg.type === 'user' && <User className="w-5 h-5 mt-0.5" />}
                     <div className="flex-1">
-                      <p className="whitespace-pre-wrap">{msg.message || msg.response}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {format(new Date(msg.created_at), 'HH:mm', { locale: ptBR })}
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                      <p className="text-xs opacity-70 mt-2">
+                        {format(msg.timestamp, 'HH:mm', { locale: ptBR })}
                       </p>
                     </div>
                   </div>
@@ -259,13 +117,16 @@ const ChatTrainer: React.FC = () => {
               </div>
             ))}
 
-            {loading && (
+            {isLoading && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-lg p-3 max-w-[80%]">
-                  <div className="flex items-center gap-2">
-                    <Bot className="w-4 h-4 text-blue-500" />
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-gray-600">TrainerAI está pensando...</span>
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-4 max-w-[80%] border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="relative">
+                      <Bot className="w-5 h-5 text-blue-600" />
+                      <Sparkles className="w-2 h-2 text-yellow-500 absolute -top-0.5 -right-0.5" />
+                    </div>
+                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                    <span className="text-gray-600">TrainerAI analisando seus dados...</span>
                   </div>
                 </div>
               </div>
@@ -274,20 +135,30 @@ const ChatTrainer: React.FC = () => {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Smart Suggestions */}
+          {showSuggestions && messages.length === 0 && (
+            <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+              <SmartSuggestions onSuggestionClick={handleSuggestionClick} />
+            </div>
+          )}
+
           {/* Quick Actions */}
           {messages.length === 0 && (
             <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">Ações rápidas:</p>
-              <div className="grid grid-cols-2 gap-2">
+              <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                Ações rápidas com IA:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {quickActions.map((action, index) => (
                   <Button
                     key={index}
                     variant="outline"
                     size="sm"
-                    onClick={() => setInputMessage(action.text)}
-                    className="flex items-center gap-2 text-left justify-start"
+                    onClick={() => handleSuggestionClick(action.text)}
+                    className="flex items-center gap-2 text-left justify-start bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200"
                   >
-                    <action.icon className="w-4 h-4" />
+                    <action.icon className="w-4 h-4 text-blue-600" />
                     {action.text}
                   </Button>
                 ))}
@@ -301,22 +172,28 @@ const ChatTrainer: React.FC = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Digite sua mensagem..."
-              disabled={loading}
+              placeholder="Converse com seu TrainerAI inteligente..."
+              disabled={isLoading}
               className="flex-1"
             />
             <Button 
-              onClick={sendMessage} 
-              disabled={loading || !inputMessage.trim()}
+              onClick={handleSendMessage} 
+              disabled={isLoading || !inputMessage.trim()}
               size="icon"
+              className="bg-blue-500 hover:bg-blue-600"
             >
-              {loading ? (
+              {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <Send className="w-4 h-4" />
               )}
             </Button>
           </div>
+          
+          <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+            <Sparkles className="w-3 h-3" />
+            Powered by OpenAI • Dados personalizados • Enter para enviar
+          </p>
         </CardContent>
       </Card>
     </div>
