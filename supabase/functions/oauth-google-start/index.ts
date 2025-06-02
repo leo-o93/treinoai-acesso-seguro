@@ -13,6 +13,11 @@ serve(async (req) => {
   }
 
   try {
+    console.log('=== INICIANDO OAUTH GOOGLE ===')
+    console.log('Timestamp:', new Date().toISOString())
+    console.log('Request URL:', req.url)
+    console.log('Request method:', req.method)
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -26,6 +31,7 @@ serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('Authorization header missing')
       return new Response(
         JSON.stringify({ error: 'Authorization header missing' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -34,23 +40,36 @@ serve(async (req) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
     if (userError || !user) {
+      console.error('Invalid user:', userError)
       return new Response(
         JSON.stringify({ error: 'Invalid user' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log('=== INICIANDO OAUTH GOOGLE ===')
-    console.log('User ID:', user.id)
+    console.log('User authenticated:', user.id)
 
-    // Usar o project ID correto
-    const baseUrl = req.url.includes('localhost') ? 'http://localhost:54321' : 'https://shhkccidqvvrwgxlyvqq.supabase.co'
-    const redirectUri = `${baseUrl}/functions/v1/oauth-google-callback`
-    
+    // Verificar se GOOGLE_CLIENT_SECRET está configurado
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
+    if (!clientSecret) {
+      console.error('GOOGLE_CLIENT_SECRET not configured')
+      return new Response(
+        JSON.stringify({ error: 'Google OAuth not properly configured. Please contact support.' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Configurações do Google OAuth
     const clientId = '948364531614-k0u8vg4k72v7s6hb4dqriqb0tec5qksl.apps.googleusercontent.com'
+    const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
     const scope = 'https://www.googleapis.com/auth/calendar'
-    const state = user.id // Usar user ID como state para identificar o usuário no callback
+    const state = user.id
+
+    console.log('=== CONFIGURAÇÕES OAUTH ===')
+    console.log('Client ID:', clientId)
+    console.log('Redirect URI:', redirectUri)
+    console.log('Scope:', scope)
+    console.log('State (User ID):', state)
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth')
     authUrl.searchParams.set('client_id', clientId)
@@ -64,13 +83,24 @@ serve(async (req) => {
     console.log('Auth URL gerada:', authUrl.toString())
 
     return new Response(
-      JSON.stringify({ authUrl: authUrl.toString() }),
+      JSON.stringify({ 
+        authUrl: authUrl.toString(),
+        debug: {
+          clientId,
+          redirectUri,
+          scope,
+          state
+        }
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Erro no oauth-google-start:', error)
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ 
+        error: 'Internal server error',
+        details: error.message 
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }

@@ -15,6 +15,7 @@ const Integracoes = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get('success')
     const error = urlParams.get('error')
+    const details = urlParams.get('details')
 
     if (success === 'google_connected') {
       toast.success('Google Calendar conectado com sucesso!')
@@ -26,10 +27,16 @@ const Integracoes = () => {
         'invalid_callback': 'Erro no callback de autenticação',
         'token_exchange_failed': 'Falha ao trocar tokens de acesso',
         'database_error': 'Erro ao salvar integração no banco de dados',
+        'configuration_error': 'Erro de configuração do OAuth',
         'internal_error': 'Erro interno do servidor'
       }
       
-      const errorMessage = errorMessages[error] || 'Erro desconhecido na integração'
+      let errorMessage = errorMessages[error] || 'Erro desconhecido na integração'
+      if (details) {
+        errorMessage += `: ${details}`
+      }
+      
+      console.error('Erro na integração:', error, details)
       toast.error(`Erro na integração: ${errorMessage}`)
     }
 
@@ -79,6 +86,20 @@ const Integracoes = () => {
             <p className="text-gray-600">
               Conecte suas contas para sincronizar dados de treinos e agenda
             </p>
+          </div>
+
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="font-medium text-blue-900 mb-2">📋 Configuração Necessária</h3>
+            <p className="text-blue-800 text-sm mb-2">
+              Para o Google Calendar funcionar, você precisa configurar as seguintes URLs no Google Cloud Console:
+            </p>
+            <div className="bg-white p-3 rounded border text-sm font-mono">
+              <p><strong>Authorized JavaScript origins:</strong></p>
+              <p className="text-blue-600">https://shhkccidqvvrwgxlyvqq.supabase.co</p>
+              <br />
+              <p><strong>Authorized redirect URIs:</strong></p>
+              <p className="text-blue-600">https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

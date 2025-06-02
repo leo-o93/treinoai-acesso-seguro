@@ -24,19 +24,59 @@ export const OAuthCard: React.FC<OAuthCardProps> = ({
   const [connecting, setConnecting] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
 
+  // Temporariamente desabilitar Strava
+  if (provider === 'strava') {
+    return (
+      <Card className="opacity-50">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <span className="text-2xl">{icon}</span>
+              <div>
+                <CardTitle className="text-lg">{title}</CardTitle>
+                <CardDescription>{description}</CardDescription>
+              </div>
+            </div>
+            <Badge variant="secondary">Em breve</Badge>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Button disabled className="w-full">
+            Integração em desenvolvimento
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
   const handleConnect = async () => {
     setConnecting(true)
     try {
+      console.log(`=== INICIANDO CONEXÃO ${provider.toUpperCase()} ===`)
+      
       const { data, error } = await supabase.functions.invoke(`oauth-${provider}-start`)
+      
+      console.log('Response data:', data)
+      console.log('Response error:', error)
       
       if (error) {
         console.error(`Erro ao iniciar OAuth ${provider}:`, error)
-        toast.error(`Erro ao conectar com ${title}`)
+        
+        // Tratamento específico de erros
+        if (error.message?.includes('configuration')) {
+          toast.error('Erro de configuração. Entre em contato com o suporte.')
+        } else {
+          toast.error(`Erro ao conectar com ${title}: ${error.message}`)
+        }
         return
       }
 
       if (data?.authUrl) {
+        console.log('Redirecionando para:', data.authUrl)
         window.location.href = data.authUrl
+      } else {
+        console.error('URL de autorização não retornada')
+        toast.error('Erro: URL de autorização não foi gerada')
       }
     } catch (error) {
       console.error(`Erro inesperado ao conectar ${provider}:`, error)
