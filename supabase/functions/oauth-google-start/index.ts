@@ -49,20 +49,8 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id)
 
-    // Verificar se GOOGLE_CLIENT_SECRET está configurado
-    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-    if (!clientSecret) {
-      console.error('GOOGLE_CLIENT_SECRET not configured')
-      return new Response(
-        JSON.stringify({ error: 'Google OAuth not properly configured. Please contact support.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log('Client secret configured successfully')
-
-    // Configurações do Google OAuth
-    const clientId = '948364531614-k0u8vg4k72v7s6hb4dqriqb0tec5qksl.apps.googleusercontent.com'
+    // Configurações do Google OAuth com novo Client ID
+    const clientId = '852850023522-rol2lqofflhmr4chdem3drtga8ahvm78.apps.googleusercontent.com'
     const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
     const scope = 'https://www.googleapis.com/auth/calendar'
     const state = user.id
@@ -91,8 +79,7 @@ serve(async (req) => {
           clientId,
           redirectUri,
           scope,
-          state,
-          secretConfigured: !!clientSecret
+          state
         }
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

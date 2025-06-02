@@ -48,8 +48,8 @@ serve(async (req) => {
       })
     }
 
-    // Usar a nova client secret
-    const clientSecret = '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'
+    // Usar as novas credenciais
+    const clientSecret = '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'
     console.log('Using client secret:', clientSecret.substring(0, 10) + '...')
 
     const supabase = createClient(
@@ -57,8 +57,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Configurações para troca de tokens
-    const clientId = '948364531614-k0u8vg4k72v7s6hb4dqriqb0tec5qksl.apps.googleusercontent.com'
+    // Configurações para troca de tokens com novo Client ID
+    const clientId = '852850023522-rol2lqofflhmr4chdem3drtga8ahvm78.apps.googleusercontent.com'
     const redirectUri = 'https://shhkccidqvvrwgxlyvqq.supabase.co/functions/v1/oauth-google-callback'
 
     console.log('=== TROCANDO CODE POR TOKENS ===')
