@@ -59,7 +59,7 @@ export const useDataProcessor = (): UseDataProcessorReturn => {
           table: 'ai_conversations'
         },
         (payload) => {
-          if (payload.new && payload.new.user_id === user.id) {
+          if (payload.new && typeof payload.new === 'object' && 'user_id' in payload.new && payload.new.user_id === user.id) {
             // Aguardar um pouco para garantir que os dados relacionados foram salvos
             setTimeout(() => {
               processData()
@@ -75,7 +75,7 @@ export const useDataProcessor = (): UseDataProcessorReturn => {
           table: 'strava_activities'
         },
         (payload) => {
-          if (payload.new && payload.new.user_id === user.id) {
+          if (payload.new && typeof payload.new === 'object' && 'user_id' in payload.new && payload.new.user_id === user.id) {
             processData()
           }
         }
@@ -88,7 +88,7 @@ export const useDataProcessor = (): UseDataProcessorReturn => {
           table: 'calendar_events'
         },
         (payload) => {
-          if (payload.new && payload.new.user_id === user.id) {
+          if (payload.new && typeof payload.new === 'object' && 'user_id' in payload.new && payload.new.user_id === user.id) {
             processData()
           }
         }
