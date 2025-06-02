@@ -1,122 +1,156 @@
 
-import React from 'react'
-import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Button } from '@/components/ui/button'
+import { useState } from "react"
+import { Link, useLocation } from "react-router-dom"
+import { useAuth } from "@/hooks/useAuth"
+import { Button } from "@/components/ui/button"
+import { Menu, X, User, LogOut, Settings, Calendar, BarChart3, Target } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { useAuth } from '@/hooks/useAuth'
-import { 
-  User, 
-  Calendar, 
-  BarChart3, 
-  LogOut, 
-  Settings,
-  Bot
-} from 'lucide-react'
+} from "@/components/ui/dropdown-menu"
 
-const Navbar: React.FC = () => {
+export const Navbar = () => {
   const { user, signOut } = useAuth()
   const location = useLocation()
-  const navigate = useNavigate()
-
-  const handleSignOut = async () => {
-    await signOut()
-    navigate('/login')
-  }
-
-  const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
-    { path: '/perfil', label: 'Perfil', icon: User },
-    { path: '/plano', label: 'Meu Plano', icon: Calendar },
-  ]
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const isActive = (path: string) => location.pathname === path
 
-  return (
-    <nav className="bg-white/90 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50 shadow-sm">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <Link to="/dashboard" className="flex items-center gap-2 font-bold text-xl text-emerald-600">
-            <Bot className="w-8 h-8" />
-            TrainerAI
-            <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full ml-2">
-              Visual
-            </span>
-          </Link>
+  const navLinks = user ? [
+    { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
+    { to: "/plano", label: "Plano Atual", icon: Target },
+    { to: "/integracoes", label: "Integrações", icon: Settings },
+  ] : []
 
-          {/* Navigation Links */}
-          <div className="hidden md:flex items-center space-x-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error)
+    }
+  }
+
+  return (
+    <nav className="bg-white shadow-sm border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-16">
+          <div className="flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
+              <span className="text-2xl font-bold text-blue-600">TrainerAI</span>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-8">
+            {navLinks.map((link) => {
+              const Icon = link.icon
               return (
                 <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
-                    isActive(item.path)
-                      ? 'bg-emerald-100 text-emerald-700 font-medium shadow-sm'
-                      : 'text-gray-600 hover:text-emerald-600 hover:bg-emerald-50'
+                  key={link.to}
+                  to={link.to}
+                  className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
+                    isActive(link.to)
+                      ? "border-blue-500 text-gray-900"
+                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {item.label}
+                  <Icon className="h-4 w-4 mr-2" />
+                  {link.label}
                 </Link>
               )
             })}
           </div>
 
           {/* User Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex items-center gap-2 hover:bg-emerald-50">
-                <User className="w-4 h-4" />
-                <span className="hidden md:inline max-w-32 truncate">{user?.email}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuItem onClick={() => navigate('/perfil')}>
-                <User className="w-4 h-4 mr-2" />
-                Meu Perfil
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Settings className="w-4 h-4 mr-2" />
-                Configurações
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="w-4 h-4 mr-2" />
-                Sair
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center space-x-4">
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <User className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <div className="flex items-center justify-start gap-2 p-2">
+                    <div className="flex flex-col space-y-1 leading-none">
+                      <p className="font-medium">{user.email}</p>
+                    </div>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/perfil" className="cursor-pointer">
+                      <User className="mr-2 h-4 w-4" />
+                      Perfil
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/integracoes" className="cursor-pointer">
+                      <Settings className="mr-2 h-4 w-4" />
+                      Integrações
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Sair
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="space-x-2">
+                <Button variant="ghost" asChild>
+                  <Link to="/login">Entrar</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/cadastro">Cadastrar</Link>
+                </Button>
+              </div>
+            )}
 
-          {/* Mobile Menu - Show nav items on smaller screens */}
-          <div className="md:hidden flex items-center space-x-1">
-            {navItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`p-2 rounded-lg transition-all duration-200 ${
-                    isActive(item.path)
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'text-gray-600 hover:text-emerald-600 hover:bg-emerald-50'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                </Link>
-              )
-            })}
+            {/* Mobile menu button */}
+            <div className="md:hidden">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              >
+                {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </Button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Navigation */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden">
+            <div className="pt-2 pb-3 space-y-1">
+              {navLinks.map((link) => {
+                const Icon = link.icon
+                return (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    className={`block pl-3 pr-4 py-2 text-base font-medium ${
+                      isActive(link.to)
+                        ? "bg-blue-50 border-r-4 border-blue-500 text-blue-700"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                    }`}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="flex items-center">
+                      <Icon className="h-4 w-4 mr-3" />
+                      {link.label}
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   )
 }
-
-export default Navbar

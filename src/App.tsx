@@ -9,6 +9,7 @@ import Index from "./pages/Index"
 import Dashboard from "./pages/Dashboard"
 import Perfil from "./pages/Perfil"
 import PlanoAtual from "./pages/PlanoAtual"
+import Integracoes from "./pages/Integracoes"
 import Operator from "./pages/Operator"
 import NotFound from "./pages/NotFound"
 import SignIn from "./components/auth/SignIn"
@@ -22,6 +23,7 @@ const queryClient = new QueryClient()
 const ProtectedDashboard = withAuth(Dashboard)
 const ProtectedPerfil = withAuth(Perfil)
 const ProtectedPlanoAtual = withAuth(PlanoAtual)
+const ProtectedIntegracoes = withAuth(Integracoes)
 const ProtectedOperator = withAuth(Operator)
 
 const App = () => (
@@ -39,6 +41,7 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedDashboard />} />
             <Route path="/perfil" element={<ProtectedPerfil />} />
             <Route path="/plano" element={<ProtectedPlanoAtual />} />
+            <Route path="/integracoes" element={<ProtectedIntegracoes />} />
             <Route path="/operator" element={<ProtectedOperator />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

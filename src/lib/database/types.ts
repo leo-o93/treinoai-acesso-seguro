@@ -12,3 +12,4 @@ export type UserGoal = Tables<'user_goals'>
 export type ChatHistory = Tables<'chat_history'>
 export type TrainingPlanHistory = Tables<'training_plans_history'>
 export type StravaToken = Tables<'strava_tokens'>
+export type UserIntegration = Tables<'user_integrations'>
