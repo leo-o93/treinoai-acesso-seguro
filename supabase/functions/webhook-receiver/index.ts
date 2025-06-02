@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -65,7 +66,7 @@ serve(async (req) => {
 
       // Extrair dados das mensagens
       const userMessage = body.userMessage || body.message
-      const aiResponse = body.aiResponse || body.response
+      const aiResponse = body.aiResponse || body.response || body.conversation
       const remoteJid = body.remoteJid
       const instancia = body.instancia
 
@@ -101,6 +102,25 @@ serve(async (req) => {
       console.log('Session ID:', sessionId)
       console.log('Message Category:', messageCategory)
 
+      // Buscar user_id baseado no telefone do WhatsApp
+      let userId = null
+      try {
+        const { data: userProfile } = await supabaseClient
+          .from('user_profiles')
+          .select('user_id')
+          .eq('whatsapp_phone', phone)
+          .maybeSingle()
+        
+        if (userProfile) {
+          userId = userProfile.user_id
+          console.log('User ID encontrado:', userId)
+        } else {
+          console.log('Nenhum user_id encontrado para o telefone:', phone)
+        }
+      } catch (error) {
+        console.error('Erro ao buscar user_id:', error)
+      }
+
       // Salvar mensagem do usuário
       const { data: conversationData, error: conversationError } = await supabaseClient
         .from('ai_conversations')
@@ -109,7 +129,7 @@ serve(async (req) => {
           message_type: 'user',
           content: userMessage,
           whatsapp_phone: phone,
-          user_id: null,
+          user_id: userId,
           context: {
             source: 'whatsapp',
             remoteJid,
@@ -131,6 +151,17 @@ serve(async (req) => {
 
       // Salvar resposta da IA se fornecida
       if (aiResponse) {
+        // Tentar extrair eventos estruturados da resposta da IA
+        let extractedEvents = []
+        if (userId) {
+          try {
+            extractedEvents = await extractStructuredEvents(aiResponse, userId, supabaseClient)
+            console.log('Eventos extraídos:', extractedEvents.length)
+          } catch (eventError) {
+            console.error('Erro ao extrair eventos:', eventError)
+          }
+        }
+
         const { data: responseData, error: responseError } = await supabaseClient
           .from('ai_responses')
           .insert({
@@ -171,9 +202,12 @@ serve(async (req) => {
             instancia,
             phone,
             category: messageCategory,
+            userId,
+            extractedEventsCount: extractedEvents?.length || 0,
             processed_at: new Date().toISOString()
           },
-          processed: true
+          processed: true,
+          user_id: userId
         })
 
       // Retornar resposta de sucesso
@@ -182,6 +216,8 @@ serve(async (req) => {
         phone: phone,
         conversation_id: conversationData.id,
         category: messageCategory,
+        user_id: userId,
+        extracted_events: extractedEvents?.length || 0,
         timestamp: new Date().toISOString()
       }
 
@@ -292,6 +328,112 @@ serve(async (req) => {
     )
   }
 })
+
+// Função para extrair eventos estruturados da resposta da IA
+async function extractStructuredEvents(aiResponse: string, userId: string, supabaseClient: any) {
+  const events = []
+  
+  // Regex patterns para extrair eventos estruturados
+  const eventPattern = /\d+\.\s\*\*(.*?)\*\*\s*\n\s*-\s\*\*Horário:\*\*\s(.*?)\n\s*-\s\*\*Descrição:\*\*(.*?)(?:\n\s*-\s\[Link do Evento\]\((.*?)\))?/g
+  
+  let match
+  while ((match = eventPattern.exec(aiResponse)) !== null) {
+    const [, title, timeRange, description, eventLink] = match
+    
+    console.log('Evento encontrado:', { title, timeRange, description, eventLink })
+    
+    // Parse do horário
+    const timeMatch = timeRange.match(/(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})/)
+    if (!timeMatch) continue
+    
+    const [, startHour, startMin, endHour, endMin] = timeMatch
+    
+    // Criar datas para hoje (ou próximo dia baseado no contexto)
+    const today = new Date()
+    const tomorrow = new Date(today)
+    tomorrow.setDate(today.getDate() + 1)
+    
+    // Determinar se é para hoje ou amanhã baseado no contexto
+    const targetDate = aiResponse.includes('amanhã') ? tomorrow : today
+    
+    const startTime = new Date(targetDate)
+    startTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0)
+    
+    const endTime = new Date(targetDate)
+    endTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0)
+    
+    // Determinar tipo do evento
+    const eventType = categorizeEventType(title.trim(), description.trim())
+    
+    const eventData = {
+      user_id: userId,
+      title: title.trim(),
+      description: description.trim(),
+      event_type: eventType,
+      start_time: startTime.toISOString(),
+      end_time: endTime.toISOString(),
+      status: 'scheduled',
+      google_event_id: extractEventIdFromLink(eventLink)
+    }
+    
+    try {
+      const { data: savedEvent, error } = await supabaseClient
+        .from('calendar_events')
+        .insert(eventData)
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Erro ao salvar evento:', error)
+      } else {
+        console.log('Evento salvo:', savedEvent)
+        events.push(savedEvent)
+      }
+    } catch (error) {
+      console.error('Erro ao processar evento:', error)
+    }
+  }
+  
+  return events
+}
+
+// Função para categorizar tipo de evento
+function categorizeEventType(title: string, description: string): string {
+  const titleLower = title.toLowerCase()
+  const descLower = description.toLowerCase()
+  
+  // Detectar treinos
+  if (titleLower.includes('treino') || 
+      descLower.includes('agachamento') || 
+      descLower.includes('flexão') || 
+      descLower.includes('remada') ||
+      descLower.includes('exerc') ||
+      descLower.includes('academia')) {
+    return 'workout'
+  }
+  
+  // Detectar refeições
+  if (titleLower.includes('café') || 
+      titleLower.includes('almoço') || 
+      titleLower.includes('jantar') || 
+      titleLower.includes('lanche') ||
+      titleLower.includes('ceia') ||
+      descLower.includes('carne') ||
+      descLower.includes('arroz') ||
+      descLower.includes('fruta')) {
+    return 'meal'
+  }
+  
+  return 'general'
+}
+
+// Função para extrair ID do evento do Google Calendar
+function extractEventIdFromLink(eventLink: string): string | null {
+  if (!eventLink) return null
+  
+  const match = eventLink.match(/eid=([^&\s]+)/)
+  return match ? match[1] : null
+}
 
 // Função para categorizar mensagens
 function categorizeMessage(message: string): string {

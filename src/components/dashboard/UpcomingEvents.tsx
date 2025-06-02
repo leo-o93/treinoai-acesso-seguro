@@ -5,12 +5,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useQuery } from '@tanstack/react-query'
 import { mcpAgendamento } from '@/lib/mcpClient'
-import { Calendar, Clock, MapPin, Edit, Trash2 } from 'lucide-react'
+import { getUpcomingEvents } from '@/lib/database'
+import { useAuth } from '@/hooks/useAuth'
+import { Calendar, Clock, MapPin, Trash2, Bot, Smartphone } from 'lucide-react'
 import { format, isToday, isTomorrow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useToast } from '@/hooks/use-toast'
 
-interface CalendarEvent {
+interface GoogleCalendarEvent {
   id: string
   summary: string
   description?: string
@@ -27,11 +29,12 @@ interface CalendarEvent {
 
 const UpcomingEvents: React.FC = () => {
   const { toast } = useToast()
+  const { user } = useAuth()
 
-  const { data: events = [], isLoading, refetch } = useQuery({
-    queryKey: ['upcoming-events'],
+  // Buscar eventos do Google Calendar via MCP
+  const { data: googleEvents = [], isLoading: isLoadingGoogle, refetch: refetchGoogle } = useQuery({
+    queryKey: ['upcoming-events-google'],
     queryFn: async () => {
-      // Buscar eventos dos próximos 7 dias
       const now = new Date()
       const nextWeek = new Date()
       nextWeek.setDate(now.getDate() + 7)
@@ -43,22 +46,43 @@ const UpcomingEvents: React.FC = () => {
 
       return result.success ? result.data?.items || [] : []
     },
-    refetchInterval: 5 * 60 * 1000, // Atualizar a cada 5 minutos
+    refetchInterval: 5 * 60 * 1000,
     retry: 1
   })
 
-  const handleCancelEvent = async (eventId: string, eventTitle: string) => {
+  // Buscar eventos do banco de dados (extraídos das conversas)
+  const { data: dbEvents = [], isLoading: isLoadingDB, refetch: refetchDB } = useQuery({
+    queryKey: ['upcoming-events-db', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return []
+      return await getUpcomingEvents(user.id, 7)
+    },
+    enabled: !!user?.id,
+    refetchInterval: 2 * 60 * 1000,
+    retry: 1
+  })
+
+  const handleCancelEvent = async (eventId: string, eventTitle: string, isGoogleEvent: boolean = false) => {
     try {
-      const result = await mcpAgendamento.cancelarEvento(eventId)
-      
-      if (result.success) {
-        toast({
-          title: 'Evento cancelado',
-          description: `"${eventTitle}" foi removido do seu calendário`,
-        })
-        refetch()
+      if (isGoogleEvent) {
+        const result = await mcpAgendamento.cancelarEvento(eventId)
+        
+        if (result.success) {
+          toast({
+            title: 'Evento cancelado',
+            description: `"${eventTitle}" foi removido do Google Calendar`,
+          })
+          refetchGoogle()
+        } else {
+          throw new Error(result.error || 'Erro ao cancelar evento')
+        }
       } else {
-        throw new Error(result.error || 'Erro ao cancelar evento')
+        // Para eventos do banco de dados, apenas marcar como cancelado
+        toast({
+          title: 'Evento do WhatsApp',
+          description: 'Este evento foi criado via WhatsApp. Use o chat para modificações.',
+          variant: 'default'
+        })
       }
     } catch (error) {
       console.error('Erro ao cancelar evento:', error)
@@ -70,26 +94,33 @@ const UpcomingEvents: React.FC = () => {
     }
   }
 
-  const getEventDateTime = (event: CalendarEvent) => {
-    const startTime = event.start.dateTime || event.start.date
+  const getEventDateTime = (event: GoogleCalendarEvent | any) => {
+    if (event.start_time) {
+      // Evento do banco de dados
+      return new Date(event.start_time)
+    }
+    
+    // Evento do Google Calendar
+    const startTime = event.start?.dateTime || event.start?.date
     return startTime ? new Date(startTime) : null
   }
 
-  const getEventBadge = (event: CalendarEvent) => {
-    const summary = event.summary?.toLowerCase() || ''
+  const getEventBadge = (event: GoogleCalendarEvent | any) => {
+    const title = event.summary || event.title || ''
+    const summary = title.toLowerCase()
     
-    if (summary.includes('treino') || summary.includes('exerc') || summary.includes('academia')) {
+    if (summary.includes('treino') || summary.includes('exerc') || summary.includes('academia') || event.event_type === 'workout') {
       return { text: 'Treino', className: 'bg-orange-50 text-orange-700 border-orange-200' }
     }
     
-    if (summary.includes('refeição') || summary.includes('almoço') || summary.includes('jantar') || summary.includes('café')) {
+    if (summary.includes('refeição') || summary.includes('almoço') || summary.includes('jantar') || summary.includes('café') || summary.includes('lanche') || event.event_type === 'meal') {
       return { text: 'Refeição', className: 'bg-green-50 text-green-700 border-green-200' }
     }
     
     return { text: 'Evento', className: 'bg-blue-50 text-blue-700 border-blue-200' }
   }
 
-  const formatEventTime = (event: CalendarEvent) => {
+  const formatEventTime = (event: GoogleCalendarEvent | any) => {
     const dateTime = getEventDateTime(event)
     if (!dateTime) return ''
 
@@ -103,6 +134,24 @@ const UpcomingEvents: React.FC = () => {
     
     return format(dateTime, "dd/MM 'às' HH:mm", { locale: ptBR })
   }
+
+  // Combinar e ordenar eventos
+  const allEvents = React.useMemo(() => {
+    const combined = [
+      ...googleEvents.map(event => ({ ...event, source: 'google' })),
+      ...dbEvents.map(event => ({ ...event, source: 'whatsapp', summary: event.title }))
+    ]
+    
+    return combined.sort((a, b) => {
+      const dateA = getEventDateTime(a)
+      const dateB = getEventDateTime(b)
+      
+      if (!dateA || !dateB) return 0
+      return dateA.getTime() - dateB.getTime()
+    })
+  }, [googleEvents, dbEvents])
+
+  const isLoading = isLoadingGoogle || isLoadingDB
 
   if (isLoading) {
     return (
@@ -136,17 +185,23 @@ const UpcomingEvents: React.FC = () => {
         <CardTitle className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-green-500" />
           Próximos Eventos
+          {dbEvents.length > 0 && (
+            <Badge variant="outline" className="ml-auto bg-blue-50 text-blue-700">
+              {dbEvents.length} via WhatsApp
+            </Badge>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {events && events.length > 0 ? (
+        {allEvents && allEvents.length > 0 ? (
           <div className="space-y-3">
-            {events.slice(0, 5).map((event: CalendarEvent) => {
+            {allEvents.slice(0, 5).map((event: any) => {
               const badge = getEventBadge(event)
               const eventTime = formatEventTime(event)
+              const isFromWhatsApp = event.source === 'whatsapp'
               
               return (
-                <div key={event.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                <div key={`${event.source}-${event.id}`} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                   <div className="flex-1 space-y-1">
                     <div className="flex items-center gap-2">
                       <h4 className="font-medium text-gray-900 truncate">
@@ -155,6 +210,12 @@ const UpcomingEvents: React.FC = () => {
                       <Badge variant="outline" className={badge.className}>
                         {badge.text}
                       </Badge>
+                      {isFromWhatsApp && (
+                        <div className="flex items-center gap-1">
+                          <Smartphone className="w-3 h-3 text-blue-500" />
+                          <span className="text-xs text-blue-600">WhatsApp</span>
+                        </div>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -182,7 +243,7 @@ const UpcomingEvents: React.FC = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => handleCancelEvent(event.id, event.summary)}
+                      onClick={() => handleCancelEvent(event.id, event.summary, !isFromWhatsApp)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="w-3 h-3" />
@@ -192,10 +253,10 @@ const UpcomingEvents: React.FC = () => {
               )
             })}
             
-            {events.length > 5 && (
+            {allEvents.length > 5 && (
               <div className="text-center pt-2">
                 <p className="text-sm text-gray-500">
-                  E mais {events.length - 5} eventos...
+                  E mais {allEvents.length - 5} eventos...
                 </p>
               </div>
             )}
