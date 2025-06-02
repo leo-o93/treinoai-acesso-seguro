@@ -3,7 +3,7 @@ import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { MessageCircle, Phone, Clock, ExternalLink } from 'lucide-react'
+import { MessageCircle, Phone, Clock, ExternalLink, Bot } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
 import { format } from 'date-fns'
@@ -19,14 +19,17 @@ const TrainerAIMessages: React.FC = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ai_conversations')
-        .select('*')
+        .select(`
+          *,
+          ai_responses(*)
+        `)
         .eq('message_type', 'user')
         .like('session_id', 'whatsapp_%')
         .order('created_at', { ascending: false })
         .limit(10)
 
       if (error) throw error
-      return data as AIConversation[]
+      return data as (AIConversation & { ai_responses: any[] })[]
     },
     refetchInterval: 10000
   })
@@ -82,6 +85,10 @@ const TrainerAIMessages: React.FC = () => {
     return sessionId.replace('whatsapp_', '').replace('@c.us', '')
   }
 
+  const hasAIResponse = (message: AIConversation & { ai_responses: any[] }) => {
+    return message.ai_responses && message.ai_responses.length > 0
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -122,8 +129,8 @@ const TrainerAIMessages: React.FC = () => {
         ) : (
           <div className="space-y-4 max-h-96 overflow-y-auto">
             {messages.map((message) => {
-              const context = message.context as any
-              const phone = getPhoneNumber(message.session_id)
+              const phone = message.whatsapp_phone || getPhoneNumber(message.session_id)
+              const aiResponse = hasAIResponse(message)
 
               return (
                 <div
@@ -141,6 +148,12 @@ const TrainerAIMessages: React.FC = () => {
                         {message.response_status === 'pending' && (
                           <Badge variant="default" className="text-xs">Pendente</Badge>
                         )}
+                        {aiResponse && (
+                          <Badge variant="secondary" className="text-xs flex items-center gap-1">
+                            <Bot className="w-3 h-3" />
+                            IA Respondeu
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-1 text-xs text-gray-500">
@@ -149,8 +162,16 @@ const TrainerAIMessages: React.FC = () => {
                     </div>
                   </div>
                   
-                  <div className="text-gray-800 text-sm leading-relaxed">
-                    {message.content}
+                  <div className="space-y-2">
+                    <div className="text-gray-800 text-sm leading-relaxed">
+                      <strong>Usuário:</strong> {message.content}
+                    </div>
+                    
+                    {aiResponse && (
+                      <div className="text-blue-700 text-sm leading-relaxed bg-blue-50 p-2 rounded">
+                        <strong>TrainerAI:</strong> {message.ai_responses[0]?.response}
+                      </div>
+                    )}
                   </div>
                 </div>
               )

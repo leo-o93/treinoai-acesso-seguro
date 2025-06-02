@@ -121,6 +121,7 @@ export const getWeeklyStats = async (userId: string) => {
   return stats
 }
 
+// Atualizar função para buscar mensagens WhatsApp
 export const getTrainerAIMessages = async (limit = 50) => {
   const { data, error } = await supabase
     .from('ai_conversations')
@@ -134,6 +135,7 @@ export const getTrainerAIMessages = async (limit = 50) => {
   return data
 }
 
+// Atualizar função de stats para incluir mensagens WhatsApp
 export const getTrainerAIStats = async () => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -215,6 +217,7 @@ export const upsertStravaToken = async (token: Omit<StravaToken, 'id' | 'created
   return data
 }
 
+// Atualizar função para incluir conversas WhatsApp (com telefone)
 export const getTrainerAIConversations = async (limit = 50) => {
   const { data, error } = await supabase
     .from('ai_conversations')
@@ -287,6 +290,7 @@ export const getConversationsBySession = async (sessionId: string) => {
   return data
 }
 
+// Atualizar stats do operador para incluir WhatsApp
 export const getOperatorStats = async () => {
   const today = new Date()
   today.setHours(0, 0, 0, 0)

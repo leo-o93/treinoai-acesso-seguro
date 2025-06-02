@@ -21,35 +21,25 @@ serve(async (req) => {
     
     // Handle TrainerAI webhook from n8n
     if (url.pathname.endsWith('/trainerai')) {
-      console.log('=== WEBHOOK TRAINERAI DEBUG START ===')
+      console.log('=== WEBHOOK TRAINERAI RECEBIDO ===')
       console.log('URL pathname:', url.pathname)
       console.log('Método:', req.method)
-      console.log('Headers recebidos:', Object.fromEntries(req.headers.entries()))
-      console.log('Timestamp de início:', new Date().toISOString())
-      
-      // TEMPORARIAMENTE REMOVENDO VALIDAÇÃO DE WEBHOOK KEY PARA TESTE
-      console.log('✅ Validação de key REMOVIDA TEMPORARIAMENTE - Processando body...')
+      console.log('Headers:', Object.fromEntries(req.headers.entries()))
       
       let body;
-      let bodyText = '';
-      
       try {
-        bodyText = await req.text()
-        console.log('Body RAW recebido:', bodyText)
-        console.log('Tamanho do body:', bodyText.length)
+        const bodyText = await req.text()
+        console.log('Body RAW:', bodyText)
         
         if (!bodyText.trim()) {
-          console.log('Body vazio - criando payload de debug')
-          body = {}
-        } else {
-          body = JSON.parse(bodyText)
-          console.log('Body PARSED com sucesso:', JSON.stringify(body, null, 2))
+          throw new Error('Body vazio recebido')
         }
+        
+        body = JSON.parse(bodyText)
+        console.log('Body PARSED:', JSON.stringify(body, null, 2))
       } catch (parseError) {
         console.error('ERRO ao fazer parse do JSON:', parseError)
-        console.error('Body que causou erro:', bodyText)
         
-        // Log do erro de parsing
         await supabaseClient
           .from('webhook_logs')
           .insert({
@@ -57,10 +47,8 @@ serve(async (req) => {
             event_type: 'parse_error',
             payload: {
               error: 'JSON parse failed',
-              raw_body: bodyText,
               parse_error: parseError.message,
-              url_pathname: url.pathname,
-              debug_timestamp: new Date().toISOString()
+              url_pathname: url.pathname
             },
             processed: false,
             error_message: `JSON parse error: ${parseError.message}`
@@ -69,8 +57,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             error: 'Invalid JSON',
-            details: parseError.message,
-            received_body: bodyText
+            details: parseError.message
           }),
           { 
             status: 400,
@@ -79,208 +66,140 @@ serve(async (req) => {
         )
       }
 
-      console.log('=== PROCESSANDO DADOS N8N ===')
-      console.log('Tipo do body:', typeof body)
-      console.log('É array?', Array.isArray(body))
-      console.log('Campos disponíveis:', body ? Object.keys(body) : 'nenhum')
-      
-      // Processar dados com múltiplos fallbacks
-      let messageData = body;
-      
-      // Se n8n enviar array, pegar primeiro item
-      if (Array.isArray(body) && body.length > 0) {
-        messageData = body[0];
-        console.log('Detectado array, usando primeiro item:', messageData)
-      }
-      
-      // Se tiver propriedade 'data', usar ela
-      if (messageData && messageData.data) {
-        messageData = messageData.data;
-        console.log('Detectada propriedade data, usando:', messageData)
-      }
-      
-      // Se tiver propriedade 'json', usar ela (comum no n8n)
-      if (messageData && messageData.json) {
-        messageData = messageData.json;
-        console.log('Detectada propriedade json, usando:', messageData)
-      }
+      // Extrair dados da nova estrutura do n8n
+      const message = body.message
+      const remoteJid = body.remoteJid
+      const instancia = body.instancia
+      const conversation = body.conversation
 
-      console.log('Dados finais para processamento:', JSON.stringify(messageData, null, 2))
+      console.log('=== DADOS EXTRAÍDOS ===')
+      console.log('Message:', message)
+      console.log('RemoteJid:', remoteJid)
+      console.log('Instancia:', instancia)
+      console.log('Conversation:', conversation)
 
-      // Tentar extrair informações com múltiplos campos possíveis
-      const extractField = (obj: any, possibleFields: string[]) => {
-        if (!obj) return null
-        
-        for (const field of possibleFields) {
-          if (obj[field] !== undefined && obj[field] !== null && obj[field] !== '') {
-            console.log(`Campo '${field}' encontrado com valor:`, obj[field])
-            return obj[field]
-          }
-        }
-        console.log(`Nenhum dos campos ${possibleFields.join(', ')} encontrado em:`, Object.keys(obj))
-        return null
-      }
-
-      const remoteJid = extractField(messageData, ['remoteJid', 'from', 'phone', 'number', 'jid', 'phoneNumber'])
-      const message = extractField(messageData, ['message', 'content', 'text', 'body', 'msg', 'messageContent'])
-      const type = extractField(messageData, ['type', 'messageType', 'msgType']) || 'text'
-      const date_time = extractField(messageData, ['date_time', 'timestamp', 'time', 'datetime', 'createdAt']) || new Date().toISOString()
-
-      console.log('=== CAMPOS EXTRAÍDOS ===')
-      console.log('remoteJid:', remoteJid)
-      console.log('message:', message)
-      console.log('type:', type)
-      console.log('date_time:', date_time)
-
-      // ACEITAR QUALQUER DADO PARA TESTE - mesmo sem message ou remoteJid
-      console.log('=== SALVANDO NO BANCO (MODO PERMISSIVO) ===')
-
-      // Criar dados padrão se não houver
-      const phone = remoteJid ? 
-        remoteJid.toString().replace('@whatsapp.net', '').replace('@s.whatsapp.net', '').replace('@c.us', '') : 
-        'test_phone_' + Date.now()
-      
-      const messageContent = message || 'Mensagem de teste sem conteúdo'
-
-      console.log('Phone extraído/criado:', phone)
-
-      // Log detalhado do webhook - SEMPRE
-      const logData = {
-        source: 'trainerai_whatsapp_n8n',
-        event_type: 'webhook_received',
-        payload: {
-          original_payload: body,
-          processed_data: {
-            remoteJid,
-            message,
-            type,
-            date_time,
-            phone
-          },
-          debug_info: {
-            headers: Object.fromEntries(req.headers.entries()),
-            url_pathname: url.pathname,
-            timestamp: new Date().toISOString(),
-            body_type: Array.isArray(body) ? 'array' : typeof body,
-            fields_found: messageData ? Object.keys(messageData) : [],
-            has_message: !!message,
-            has_remoteJid: !!remoteJid,
-            body_length: bodyText.length,
-            test_mode: true
-          }
-        },
-        processed: false
-      }
-
-      console.log('Dados do log a serem salvos:', JSON.stringify(logData, null, 2))
-
-      const { data: insertLogData, error: logError } = await supabaseClient
-        .from('webhook_logs')
-        .insert(logData)
-        .select()
-
-      if (logError) {
-        console.error('ERRO ao salvar log:', logError)
+      // Validar campos obrigatórios
+      if (!message || !remoteJid) {
+        console.error('Campos obrigatórios ausentes')
         return new Response(
           JSON.stringify({ 
-            error: 'Database error',
-            details: logError.message
+            error: 'Missing required fields: message and remoteJid',
+            received: { message: !!message, remoteJid: !!remoteJid }
+          }),
+          { 
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+
+      // Extrair telefone
+      const phone = remoteJid.replace('@c.us', '').replace('@s.whatsapp.net', '')
+      console.log('Phone extraído:', phone)
+
+      // Log do webhook
+      const { data: logData, error: logError } = await supabaseClient
+        .from('webhook_logs')
+        .insert({
+          source: 'trainerai_whatsapp_n8n',
+          event_type: 'message_received',
+          payload: {
+            message,
+            remoteJid,
+            instancia,
+            conversation,
+            phone,
+            processed_at: new Date().toISOString()
+          },
+          processed: false
+        })
+        .select()
+        .single()
+
+      if (logError) {
+        console.error('Erro ao salvar log:', logError)
+      }
+
+      // Chamar função de processamento de IA
+      try {
+        console.log('Chamando função de processamento de IA...')
+        
+        const { data: aiResult, error: aiError } = await supabaseClient.functions.invoke(
+          'process-whatsapp-message',
+          {
+            body: {
+              message,
+              remoteJid,
+              instancia,
+              conversation
+            }
+          }
+        )
+
+        if (aiError) {
+          console.error('Erro na função de IA:', aiError)
+          throw aiError
+        }
+
+        console.log('Resultado da IA:', aiResult)
+
+        // Marcar webhook como processado
+        if (logData) {
+          await supabaseClient
+            .from('webhook_logs')
+            .update({ 
+              processed: true,
+              payload: {
+                ...logData.payload,
+                ai_result: aiResult
+              }
+            })
+            .eq('id', logData.id)
+        }
+
+        // Retornar resposta para o n8n enviar via WhatsApp
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Mensagem processada com sucesso',
+            phone: phone,
+            response: aiResult?.message || 'Resposta processada',
+            ai_result: aiResult,
+            webhook_log_id: logData?.id
+          }),
+          { 
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+
+      } catch (processError) {
+        console.error('Erro no processamento da IA:', processError)
+        
+        // Marcar webhook com erro
+        if (logData) {
+          await supabaseClient
+            .from('webhook_logs')
+            .update({ 
+              processed: false,
+              error_message: `AI processing error: ${processError.message}`
+            })
+            .eq('id', logData.id)
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: 'Erro no processamento da IA',
+            details: processError.message,
+            phone: phone
           }),
           { 
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           }
         )
-      } else {
-        console.log('✅ Log salvo com sucesso:', insertLogData)
       }
-
-      // SEMPRE salvar na tabela ai_conversations para teste
-      console.log('Salvando conversa na tabela ai_conversations...')
-      
-      const { data: convData, error: conversationError } = await supabaseClient
-        .from('ai_conversations')
-        .insert({
-          session_id: `whatsapp_${phone}`,
-          message_type: 'user',
-          content: messageContent,
-          user_id: '00000000-0000-0000-0000-000000000000', // UUID temporário para teste
-          context: {
-            source: 'whatsapp_n8n',
-            phone,
-            remoteJid,
-            type,
-            date_time,
-            n8n_webhook_id: url.pathname,
-            original_payload: messageData,
-            debug_timestamp: new Date().toISOString(),
-            test_mode: true
-          }
-        })
-        .select()
-
-      if (conversationError) {
-        console.error('ERRO ao salvar conversa:', conversationError)
-      } else {
-        console.log('✅ Conversa salva com sucesso:', convData)
-      }
-
-      // Marcar webhook como processado
-      if (insertLogData && insertLogData[0]) {
-        const { error: updateError } = await supabaseClient
-          .from('webhook_logs')
-          .update({ processed: true })
-          .eq('id', insertLogData[0].id)
-        
-        if (updateError) {
-          console.error('ERRO ao marcar webhook como processado:', updateError)
-        } else {
-          console.log('✅ Webhook marcado como processado')
-        }
-      }
-
-      console.log('=== WEBHOOK PROCESSADO COM SUCESSO ===')
-      
-      // Resposta estruturada para o n8n
-      const response = {
-        success: true,
-        message: 'Webhook processed successfully (TEST MODE)',
-        data: {
-          conversation_id: convData?.[0]?.id,
-          session_id: `whatsapp_${phone}`,
-          phone: phone,
-          processed_at: new Date().toISOString(),
-          message_content: messageContent,
-          message_type: type,
-          webhook_log_id: insertLogData?.[0]?.id,
-          test_mode: true
-        },
-        webhook_info: {
-          source: 'trainerai_whatsapp_n8n',
-          webhook_path: url.pathname,
-          processed_fields: {
-            remoteJid,
-            message,
-            type,
-            date_time,
-            phone
-          }
-        },
-        debug_info: {
-          original_payload_type: Array.isArray(body) ? 'array' : typeof body,
-          fields_extracted: messageData ? Object.keys(messageData) : [],
-          authentication: 'bypassed_for_testing',
-          body_size: bodyText.length
-        }
-      }
-
-      return new Response(
-        JSON.stringify(response),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
     }
 
     // Handle existing webhook functionality for other routes
@@ -338,7 +257,6 @@ serve(async (req) => {
   } catch (error) {
     console.error('=== ERRO GERAL NO WEBHOOK ===')
     console.error('Error:', error)
-    console.error('Stack:', error.stack)
     
     // Log de erro geral
     try {
