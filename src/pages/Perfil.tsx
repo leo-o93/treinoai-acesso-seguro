@@ -1,416 +1,237 @@
 
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useQuery } from '@tanstack/react-query'
-import { useDataProcessor } from '@/hooks/useDataProcessor'
 import { supabase } from '@/integrations/supabase/client'
-import Navbar from '@/components/layout/Navbar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { User, Target, Activity, Calendar, TrendingUp, Heart, AlertCircle } from 'lucide-react'
-import { LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Navbar } from '@/components/layout/Navbar'
+import { toast } from 'sonner'
 
-const Perfil: React.FC = () => {
-  const { user } = useAuth()
-  const { data: processedData, isLoading: dataLoading } = useDataProcessor()
+const Perfil = () => {
+  const { user, loading } = useAuth()
+  const [profile, setProfile] = useState({
+    name: '',
+    whatsapp_phone: '',
+    age: '',
+    weight: '',
+    height: '',
+    objective: '',
+    experience_level: '',
+    training_frequency: ''
+  })
+  const [saving, setSaving] = useState(false)
+  const [loadingProfile, setLoadingProfile] = useState(true)
 
-  const { data: profile, isLoading } = useQuery({
-    queryKey: ['user-profile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-      
+  useEffect(() => {
+    if (user) {
+      loadProfile()
+    }
+  }, [user])
+
+  const loadProfile = async () => {
+    try {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .maybeSingle()
-      
-      if (error) throw error
-      return data
-    },
-    enabled: !!user?.id
-  })
 
-  const { data: goals } = useQuery({
-    queryKey: ['user-goals', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return []
-      
-      const { data, error } = await supabase
-        .from('user_goals')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-      
-      if (error) throw error
-      return data || []
-    },
-    enabled: !!user?.id
-  })
+      if (error && error.code !== 'PGRST116') {
+        console.error('Erro ao carregar perfil:', error)
+        toast.error('Erro ao carregar perfil')
+        return
+      }
 
-  if (isLoading || dataLoading) {
+      if (data) {
+        setProfile({
+          name: data.name || '',
+          whatsapp_phone: data.whatsapp_phone || '',
+          age: data.age?.toString() || '',
+          weight: data.weight?.toString() || '',
+          height: data.height?.toString() || '',
+          objective: data.objective || '',
+          experience_level: data.experience_level || '',
+          training_frequency: data.training_frequency?.toString() || ''
+        })
+      }
+    } catch (error) {
+      console.error('Erro inesperado:', error)
+      toast.error('Erro inesperado ao carregar perfil')
+    } finally {
+      setLoadingProfile(false)
+    }
+  }
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+
+    try {
+      const profileData = {
+        user_id: user?.id,
+        name: profile.name || null,
+        whatsapp_phone: profile.whatsapp_phone || null,
+        age: profile.age ? parseInt(profile.age) : null,
+        weight: profile.weight ? parseFloat(profile.weight) : null,
+        height: profile.height ? parseFloat(profile.height) : null,
+        objective: profile.objective || null,
+        experience_level: profile.experience_level || null,
+        training_frequency: profile.training_frequency ? parseInt(profile.training_frequency) : null,
+        updated_at: new Date().toISOString()
+      }
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert(profileData, {
+          onConflict: 'user_id'
+        })
+
+      if (error) {
+        console.error('Erro ao salvar perfil:', error)
+        toast.error('Erro ao salvar perfil')
+        return
+      }
+
+      toast.success('Perfil salvo com sucesso!')
+    } catch (error) {
+      console.error('Erro inesperado:', error)
+      toast.error('Erro inesperado ao salvar perfil')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading || loadingProfile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="container mx-auto p-6 max-w-6xl">
-          <div className="animate-pulse space-y-6">
-            <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded-lg"></div>
-              ))}
-            </div>
+        <div className="container mx-auto py-8">
+          <div className="animate-pulse">Carregando...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="container mx-auto py-8">
+          <div className="text-center">
+            <p className="text-gray-600">Você precisa estar logado para acessar o perfil.</p>
           </div>
         </div>
       </div>
     )
   }
 
-  // Dados reais de progresso baseados no Strava
-  const progressData = processedData?.stravaActivities.slice(0, 10).reverse().map((activity, index) => ({
-    day: `${index + 1}`,
-    distancia: activity.distance,
-    pace: activity.pace,
-    velocidade: activity.averageSpeed,
-    calorias: activity.calories
-  })) || []
-
-  const goalProgressData = goals.map(goal => ({
-    goal: goal.goal_type,
-    progress: goal.current_value || 0,
-    target: goal.target_value || 100,
-    percentage: Math.min(((goal.current_value || 0) / (goal.target_value || 100)) * 100, 100)
-  }))
-
-  // Calcular estatísticas do perfil
-  const calculateProfileCompleteness = () => {
-    if (!profile) return 0
-    
-    const fields = [
-      profile.age, profile.altura || profile.height, 
-      profile.peso || profile.weight, profile.objetivo || profile.objective,
-      profile.frequencia_semanal || profile.training_frequency,
-      profile.experience_level
-    ]
-    
-    const filledFields = fields.filter(field => field !== null && field !== undefined).length
-    return (filledFields / fields.length) * 100
-  }
-
-  const profileCompleteness = calculateProfileCompleteness()
-
-  // Calcular IMC
-  const calculateBMI = () => {
-    const weight = profile?.peso || profile?.weight
-    const height = profile?.altura || profile?.height
-    
-    if (!weight || !height) return null
-    
-    const heightM = height / 100
-    return (weight / (heightM * heightM)).toFixed(1)
-  }
-
-  const bmi = calculateBMI()
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
-      <div className="container mx-auto p-6 max-w-6xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Perfil do Usuário</h1>
-            <p className="text-gray-600">
-              Dados extraídos automaticamente das conversas e atividades
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-emerald-600">
-              <User className="w-4 h-4 mr-1" />
-              {profileCompleteness.toFixed(0)}% Completo
-            </Badge>
-            {processedData && (
-              <Badge variant="outline" className="text-blue-600">
-                {processedData.stravaActivities.length} Atividades
-              </Badge>
-            )}
-          </div>
-        </div>
-
-        {/* Status do Perfil */}
-        {profileCompleteness < 70 && (
-          <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-                <div>
-                  <span className="font-medium text-yellow-800">
-                    Perfil Incompleto ({profileCompleteness.toFixed(0)}%)
-                  </span>
-                  <p className="text-sm text-yellow-700">
-                    Continue conversando com o TrainerAI para completar seu perfil automaticamente
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Informações Básicas */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-2xl mx-auto">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5 text-blue-500" />
-                Dados Pessoais
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {profile ? (
-                <>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600">
-                      {profile.age || 'N/A'}
-                    </div>
-                    <div className="text-sm text-gray-600">Anos</div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                      <div className="text-xl font-semibold">
-                        {profile.altura || profile.height || 'N/A'}
-                      </div>
-                      <div className="text-xs text-gray-600">Altura (cm)</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xl font-semibold">
-                        {profile.peso || profile.weight || 'N/A'}
-                      </div>
-                      <div className="text-xs text-gray-600">Peso (kg)</div>
-                    </div>
-                  </div>
-
-                  {bmi && (
-                    <div className="text-center pt-2 border-t">
-                      <div className="text-lg font-semibold text-purple-600">{bmi}</div>
-                      <div className="text-xs text-gray-600">IMC</div>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Objetivo</div>
-                    <Badge variant="outline" className="w-full justify-center p-2">
-                      {profile.objetivo || profile.objective || 'Não definido'}
-                    </Badge>
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <User className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">
-                    Dados serão extraídos das conversas
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="w-5 h-5 text-orange-500" />
-                Nível de Atividade
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {profile ? (
-                <>
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-orange-600">
-                      {profile.frequencia_semanal || profile.training_frequency || 0}x
-                    </div>
-                    <div className="text-sm text-gray-600">por semana</div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span>Experiência</span>
-                      <span className="capitalize">{profile.experience_level || 'Iniciante'}</span>
-                    </div>
-                    <Progress 
-                      value={
-                        profile.experience_level === 'avancado' ? 90 :
-                        profile.experience_level === 'intermediario' ? 60 : 30
-                      } 
-                      className="h-2"
-                    />
-                  </div>
-
-                  {processedData && (
-                    <div className="pt-2 border-t space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Atividades Totais</span>
-                        <span className="font-semibold">{processedData.stravaActivities.length}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Esta Semana</span>
-                        <span className="font-semibold">{processedData.metrics.weeklyProgress.workoutsCompleted}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span>Aderência</span>
-                        <span className="font-semibold">{processedData.metrics.adherenceScore.toFixed(0)}%</span>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-4">
-                  <Activity className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">
-                    Dados de atividade serão coletados
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-purple-500" />
-                Status dos Objetivos
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {goalProgressData.length > 0 ? (
-                goalProgressData.map((goal, index) => (
-                  <div key={index}>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="capitalize">{goal.goal}</span>
-                      <span>{goal.progress}/{goal.target}</span>
-                    </div>
-                    <Progress value={goal.percentage} className="h-2" />
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-4">
-                  <Target className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                  <p className="text-sm text-gray-500">
-                    Objetivos serão extraídos das conversas
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Gráficos de Progresso Real */}
-        {progressData.length > 0 && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-emerald-500" />
-                  Evolução da Distância
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={progressData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line 
-                      type="monotone" 
-                      dataKey="distancia" 
-                      stroke="#22c55e" 
-                      strokeWidth={2}
-                      name="Distância (km)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="w-5 h-5 text-red-500" />
-                  Desempenho Geral
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <AreaChart data={progressData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip />
-                    <Area 
-                      type="monotone" 
-                      dataKey="velocidade" 
-                      stackId="1"
-                      stroke="#f59e0b" 
-                      fill="#f59e0b"
-                      fillOpacity={0.3}
-                      name="Velocidade (km/h)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Preferências Alimentares Reais */}
-        {(profile?.alimentos_disponiveis || profile?.restricoes_alimentares || profile?.food_preferences || profile?.restrictions) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-green-500" />
-                Preferências Nutricionais
-              </CardTitle>
+              <CardTitle>Meu Perfil</CardTitle>
+              <CardDescription>
+                Atualize suas informações pessoais e preferências de treino
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-medium mb-3">Alimentos Disponíveis</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {(profile?.alimentos_disponiveis || profile?.food_preferences || []).map((food: string, index: number) => (
-                      <Badge key={index} variant="outline" className="bg-green-50">
-                        {food}
-                      </Badge>
-                    ))}
-                    {(!profile?.alimentos_disponiveis && !profile?.food_preferences) && (
-                      <Badge variant="outline" className="text-gray-500">
-                        Será extraído das conversas
-                      </Badge>
-                    )}
+              <form onSubmit={handleSave} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="name">Nome</Label>
+                    <Input
+                      id="name"
+                      value={profile.name}
+                      onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Seu nome completo"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="whatsapp">WhatsApp</Label>
+                    <Input
+                      id="whatsapp"
+                      value={profile.whatsapp_phone}
+                      onChange={(e) => setProfile(prev => ({ ...prev, whatsapp_phone: e.target.value }))}
+                      placeholder="(11) 99999-9999"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="age">Idade</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      value={profile.age}
+                      onChange={(e) => setProfile(prev => ({ ...prev, age: e.target.value }))}
+                      placeholder="25"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="weight">Peso (kg)</Label>
+                    <Input
+                      id="weight"
+                      type="number"
+                      step="0.1"
+                      value={profile.weight}
+                      onChange={(e) => setProfile(prev => ({ ...prev, weight: e.target.value }))}
+                      placeholder="70.5"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="height">Altura (cm)</Label>
+                    <Input
+                      id="height"
+                      type="number"
+                      value={profile.height}
+                      onChange={(e) => setProfile(prev => ({ ...prev, height: e.target.value }))}
+                      placeholder="175"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="training_frequency">Frequência de Treino (dias/semana)</Label>
+                    <Input
+                      id="training_frequency"
+                      type="number"
+                      min="1"
+                      max="7"
+                      value={profile.training_frequency}
+                      onChange={(e) => setProfile(prev => ({ ...prev, training_frequency: e.target.value }))}
+                      placeholder="3"
+                    />
                   </div>
                 </div>
                 
                 <div>
-                  <h4 className="font-medium mb-3">Restrições</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {(profile?.restricoes_alimentares || profile?.restrictions || []).map((restriction: string, index: number) => (
-                      <Badge key={index} variant="outline" className="bg-red-50">
-                        {restriction}
-                      </Badge>
-                    ))}
-                    {(!profile?.restricoes_alimentares && !profile?.restrictions) && (
-                      <Badge variant="outline" className="text-gray-500">
-                        Nenhuma identificada
-                      </Badge>
-                    )}
-                  </div>
+                  <Label htmlFor="objective">Objetivo Principal</Label>
+                  <Input
+                    id="objective"
+                    value={profile.objective}
+                    onChange={(e) => setProfile(prev => ({ ...prev, objective: e.target.value }))}
+                    placeholder="Perder peso, ganhar massa muscular, etc."
+                  />
                 </div>
-              </div>
+                
+                <div>
+                  <Label htmlFor="experience_level">Nível de Experiência</Label>
+                  <Input
+                    id="experience_level"
+                    value={profile.experience_level}
+                    onChange={(e) => setProfile(prev => ({ ...prev, experience_level: e.target.value }))}
+                    placeholder="Iniciante, Intermediário, Avançado"
+                  />
+                </div>
+
+                <Button type="submit" disabled={saving} className="w-full">
+                  {saving ? 'Salvando...' : 'Salvar Perfil'}
+                </Button>
+              </form>
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
     </div>
   )

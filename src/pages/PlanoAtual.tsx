@@ -1,490 +1,169 @@
 
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useQuery } from '@tanstack/react-query'
-import { useDataProcessor } from '@/hooks/useDataProcessor'
-import { supabase } from '@/integrations/supabase/client'
-import Navbar from '@/components/layout/Navbar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { Calendar, Clock, Dumbbell, Utensils, TrendingUp, CheckCircle, BarChart3, Activity, AlertCircle } from 'lucide-react'
-import { format, startOfWeek, addDays, isToday, isTomorrow } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Navbar } from '@/components/layout/Navbar'
+import { Calendar, Clock, Target, TrendingUp } from 'lucide-react'
 
-const PlanoAtual: React.FC = () => {
-  const { user } = useAuth()
-  const { data: processedData, isLoading: dataLoading } = useDataProcessor()
+const PlanoAtual = () => {
+  const { user, loading } = useAuth()
 
-  const { data: planoAtual, isLoading } = useQuery({
-    queryKey: ['current-plan', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-      
-      const { data, error } = await supabase
-        .from('training_plans_history')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (error) throw error
-      return data
-    },
-    enabled: !!user?.id
-  })
-
-  const { data: nutritionPlan } = useQuery({
-    queryKey: ['nutrition-plan', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-      
-      const { data, error } = await supabase
-        .from('nutrition_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      if (error) throw error
-      return data
-    },
-    enabled: !!user?.id
-  })
-
-  // Mover todos os useMemo para o topo, antes das condicionais
-  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab']
-  
-  const adherenceData = React.useMemo(() => {
-    return diasSemana.map((dia, index) => {
-      const activitiesToday = processedData?.stravaActivities.filter(activity => 
-        new Date(activity.date).getDay() === index &&
-        new Date(activity.date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-      ) || []
-      
-      const eventsToday = processedData?.calendarEvents.filter(event =>
-        new Date(event.startTime).getDay() === index &&
-        new Date(event.startTime) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) &&
-        event.type === 'workout'
-      ) || []
-      
-      return {
-        dia,
-        planejado: eventsToday.length || (index % 2 === 0 ? 1 : 0),
-        realizado: activitiesToday.length,
-        aderencia: activitiesToday.length > 0 ? 100 : 0
-      }
-    })
-  }, [processedData])
-
-  const tipoTreinoData = React.useMemo(() => {
-    if (!processedData?.stravaActivities.length) {
-      return [
-        { name: 'Sem dados', value: 100, color: '#e5e7eb' }
-      ]
-    }
-
-    const typeCount = processedData.stravaActivities.reduce((acc, activity) => {
-      const type = activity.type
-      acc[type] = (acc[type] || 0) + 1
-      return acc
-    }, {} as Record<string, number>)
-
-    const total = processedData.stravaActivities.length
-    const colors = ['#3b82f6', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6']
-    
-    return Object.entries(typeCount).map(([name, count], index) => ({
-      name: name === 'Run' ? 'Corrida' : 
-            name === 'Ride' ? 'Ciclismo' : 
-            name === 'Walk' ? 'Caminhada' : name,
-      value: (count / total) * 100,
-      color: colors[index % colors.length]
-    }))
-  }, [processedData])
-
-  const nutritionData = React.useMemo(() => {
-    return processedData?.nutritionPlans.length > 0 ? 
-      processedData.nutritionPlans[0].meals.map(meal => ({
-        refeicao: meal.name,
-        calorias: meal.calories,
-        proteina: Math.round(meal.calories * 0.25 / 4),
-        carbs: Math.round(meal.calories * 0.5 / 4)
-      })) : []
-  }, [processedData])
-
-  const planData = React.useMemo(() => {
-    return planoAtual?.plan_data ? 
-      (typeof planoAtual.plan_data === 'string' ? JSON.parse(planoAtual.plan_data) : planoAtual.plan_data) 
-      : null
-  }, [planoAtual])
-
-  const weeklyPerformanceData = React.useMemo(() => {
-    if (!processedData?.stravaActivities.length) return []
-
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const date = new Date()
-      date.setDate(date.getDate() - (6 - i))
-      return date
-    })
-
-    return last7Days.map((date, index) => {
-      const dayActivities = processedData.stravaActivities.filter(activity => {
-        const activityDate = new Date(activity.date)
-        return activityDate.toDateString() === date.toDateString()
-      })
-
-      return {
-        dia: date.toLocaleDateString('pt-BR', { weekday: 'short' }),
-        distancia: dayActivities.reduce((sum, a) => sum + a.distance, 0),
-        tempo: dayActivities.reduce((sum, a) => sum + a.duration, 0),
-        calorias: dayActivities.reduce((sum, a) => sum + a.calories, 0)
-      }
-    })
-  }, [processedData])
-
-  // Agora as condicionais de loading podem vir depois de todos os hooks
-  if (isLoading || dataLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+      <div className="min-h-screen bg-gray-50">
         <Navbar />
-        <div className="container mx-auto p-6 max-w-6xl">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-gray-200 rounded w-1/3"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-64 bg-gray-200 rounded-lg"></div>
-              ))}
-            </div>
-          </div>
+        <div className="container mx-auto py-8">
+          <div className="animate-pulse">Carregando...</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Navbar />
+        <div className="container mx-auto py-8">
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-gray-600">
+                Você precisa estar logado para acessar seu plano atual.
+              </p>
+            </CardContent>
+          </Card>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      
-      <div className="container mx-auto p-6 max-w-6xl space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Meu Plano Atual</h1>
+      <div className="container mx-auto py-8 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              Meu Plano Atual
+            </h1>
             <p className="text-gray-600">
-              Dados reais extraídos das conversas e atividades do Strava
+              Acompanhe seu progresso e veja os próximos treinos e refeições
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {processedData && (
-              <>
-                <Badge variant="outline" className="text-emerald-600">
-                  <Activity className="w-4 h-4 mr-1" />
-                  {processedData.stravaActivities.length} Atividades
-                </Badge>
-                <Badge variant="outline" className="text-blue-600">
-                  <Calendar className="w-4 h-4 mr-1" />
-                  {processedData.calendarEvents.length} Eventos
-                </Badge>
-              </>
-            )}
-          </div>
-        </div>
 
-        {/* Status do Plano */}
-        {planData ? (
-          <Card className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <CheckCircle className="w-6 h-6 text-emerald-600" />
-                  <div>
-                    <span className="font-medium text-emerald-800">
-                      Plano Ativo Identificado
-                    </span>
-                    <p className="text-sm text-emerald-700">
-                      Objetivo: {planData.objetivo || 'Melhoria geral da condição física'}
-                    </p>
-                  </div>
-                </div>
-                <div className="text-sm text-emerald-700">
-                  Criado em: {format(new Date(planoAtual.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="bg-gradient-to-r from-yellow-50 to-orange-50 border-yellow-200">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-4">
-                <AlertCircle className="w-6 h-6 text-yellow-600" />
-                <div>
-                  <span className="font-medium text-yellow-800">
-                    Nenhum Plano Ativo Detectado
-                  </span>
-                  <p className="text-sm text-yellow-700">
-                    Continue conversando com o TrainerAI para gerar seu plano personalizado
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Métricas Principais */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Aderência Semanal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
-                {processedData ? Math.round(processedData.metrics.adherenceScore) : 0}%
-              </div>
-              <Progress value={processedData ? processedData.metrics.adherenceScore : 0} className="h-2 mt-2" />
-              <p className="text-xs text-gray-500 mt-1">Meta: 80%</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Consistência</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-600">
-                {processedData ? Math.round(processedData.metrics.consistencyScore) : 0}%
-              </div>
-              <Progress value={processedData ? processedData.metrics.consistencyScore : 0} className="h-2 mt-2" />
-              <p className="text-xs text-gray-500 mt-1">Última semana</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Distância Semanal</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-purple-600">
-                {processedData ? processedData.metrics.weeklyProgress.totalDistance.toFixed(1) : 0}km
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Últimos 7 dias</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Tempo Ativo</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-orange-600">
-                {processedData ? Math.round(processedData.metrics.weeklyProgress.totalTime) : 0}min
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Esta semana</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Gráficos de Performance */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-blue-500" />
-                Performance Semanal Real
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {weeklyPerformanceData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={weeklyPerformanceData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="dia" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="distancia" fill="#3b82f6" name="Distância (km)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-64 flex items-center justify-center text-gray-500">
-                  <div className="text-center">
-                    <Activity className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                    <p>Dados aparecerão conforme atividades forem registradas</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Dumbbell className="w-5 h-5 text-orange-500" />
-                Distribuição dos Treinos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={tipoTreinoData}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    dataKey="value"
-                    label={({ name, value }) => `${name} ${value.toFixed(0)}%`}
-                  >
-                    {tipoTreinoData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Agenda Semanal Real */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="w-5 h-5 text-purple-500" />
-              Agenda da Semana
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
-              {diasSemana.map((dia, index) => {
-                const today = new Date()
-                const dayDate = new Date()
-                dayDate.setDate(today.getDate() - today.getDay() + index)
-                
-                const eventsToday = processedData?.calendarEvents.filter(event => {
-                  const eventDate = new Date(event.startTime)
-                  return eventDate.toDateString() === dayDate.toDateString()
-                }) || []
-
-                const activitiesToday = processedData?.stravaActivities.filter(activity => {
-                  const activityDate = new Date(activity.date)
-                  return activityDate.toDateString() === dayDate.toDateString()
-                }) || []
-
-                const isCurrentDay = isToday(dayDate)
-                const isTomorrowDay = isTomorrow(dayDate)
-
-                return (
-                  <Card key={index} className={`border-2 ${
-                    isCurrentDay ? 'border-emerald-300 bg-emerald-50' : 
-                    isTomorrowDay ? 'border-blue-300 bg-blue-50' : 
-                    'border-gray-100'
-                  }`}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-medium flex items-center justify-between">
-                        <span>{dia}</span>
-                        <span className="text-xs text-gray-500">
-                          {format(dayDate, 'dd/MM')}
-                        </span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pt-0">
-                      <div className="space-y-2">
-                        {/* Eventos Agendados */}
-                        {eventsToday.map((event, eventIndex) => (
-                          <div key={eventIndex} className="p-2 bg-blue-50 rounded text-xs">
-                            <div className="flex items-center gap-1 mb-1">
-                              <Calendar className="w-3 h-3 text-blue-500" />
-                              <span className="font-medium">{event.title}</span>
-                            </div>
-                            <div className="flex items-center gap-1 text-gray-600">
-                              <Clock className="w-3 h-3" />
-                              <span>{format(new Date(event.startTime), 'HH:mm')}</span>
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Atividades Realizadas */}
-                        {activitiesToday.map((activity, activityIndex) => (
-                          <div key={activityIndex} className="p-2 bg-emerald-50 rounded text-xs">
-                            <div className="flex items-center gap-1 mb-1">
-                              <CheckCircle className="w-3 h-3 text-emerald-500" />
-                              <span className="font-medium">{activity.name}</span>
-                            </div>
-                            <div className="text-gray-600">
-                              {activity.distance > 0 && (
-                                <span>{activity.distance.toFixed(1)}km • </span>
-                              )}
-                              <span>{activity.duration.toFixed(0)}min</span>
-                            </div>
-                          </div>
-                        ))}
-
-                        {eventsToday.length === 0 && activitiesToday.length === 0 && (
-                          <div className="text-center py-4 text-gray-400">
-                            <Calendar className="w-6 h-6 mx-auto mb-1" />
-                            <span className="text-xs">
-                              {isCurrentDay ? 'Hoje' : isTomorrowDay ? 'Amanhã' : 'Livre'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Plano Nutricional Real */}
-        {nutritionData.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Utensils className="w-5 h-5 text-green-500" />
-                Plano Nutricional Extraído
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={nutritionData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="refeicao" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="calorias" fill="#22c55e" name="Calorias" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Próximos Objetivos */}
-        {processedData?.metrics.nextGoals.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-emerald-500" />
-                Próximos Objetivos
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {processedData.metrics.nextGoals.map((goal, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                    <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold text-sm">{index + 1}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Target className="h-5 w-5 mr-2 text-blue-600" />
+                  Plano de Treino
+                </CardTitle>
+                <CardDescription>
+                  Seu programa de exercícios personalizado
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+                    <div>
+                      <p className="font-medium">Treino de Hoje</p>
+                      <p className="text-sm text-gray-600">Treino A - Peito e Tríceps</p>
                     </div>
-                    <span className="text-sm font-medium text-emerald-800">{goal}</span>
+                    <Clock className="h-5 w-5 text-blue-600" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Próximos treinos:</p>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>• Amanhã: Treino B - Costas e Bíceps</p>
+                      <p>• Quinta: Treino C - Pernas e Glúteos</p>
+                      <p>• Sexta: Treino D - Ombros e Abdômen</p>
+                    </div>
+                  </div>
+                  
+                  <Button className="w-full">
+                    Ver Detalhes do Treino
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                  Plano Nutricional
+                </CardTitle>
+                <CardDescription>
+                  Suas refeições e metas nutricionais
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2 bg-green-50 rounded">
+                      <p className="text-lg font-bold text-green-600">2,200</p>
+                      <p className="text-xs text-gray-600">Calorias</p>
+                    </div>
+                    <div className="p-2 bg-blue-50 rounded">
+                      <p className="text-lg font-bold text-blue-600">140g</p>
+                      <p className="text-xs text-gray-600">Proteína</p>
+                    </div>
+                    <div className="p-2 bg-orange-50 rounded">
+                      <p className="text-lg font-bold text-orange-600">60g</p>
+                      <p className="text-xs text-gray-600">Gordura</p>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Próximas refeições:</p>
+                    <div className="text-sm text-gray-600 space-y-1">
+                      <p>• Almoço: Frango grelhado com arroz e salada</p>
+                      <p>• Lanche: Whey protein com banana</p>
+                      <p>• Jantar: Salmão com batata doce</p>
+                    </div>
+                  </div>
+                  
+                  <Button variant="outline" className="w-full">
+                    Ver Plano Completo
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-purple-600" />
+                Cronograma da Semana
+              </CardTitle>
+              <CardDescription>
+                Visão geral dos seus compromissos fitness
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day, index) => (
+                  <div key={day} className={`p-3 rounded-lg text-center ${
+                    index === 1 ? 'bg-blue-100 border-2 border-blue-300' : 'bg-gray-50'
+                  }`}>
+                    <p className="font-medium text-sm">{day}</p>
+                    <div className="mt-2 space-y-1">
+                      {index === 0 && <div className="text-xs bg-red-200 rounded px-1">Descanso</div>}
+                      {index === 1 && <div className="text-xs bg-blue-200 rounded px-1">Treino A</div>}
+                      {index === 2 && <div className="text-xs bg-green-200 rounded px-1">Cardio</div>}
+                      {index === 3 && <div className="text-xs bg-blue-200 rounded px-1">Treino B</div>}
+                      {index === 4 && <div className="text-xs bg-blue-200 rounded px-1">Treino C</div>}
+                      {index === 5 && <div className="text-xs bg-blue-200 rounded px-1">Treino D</div>}
+                      {index === 6 && <div className="text-xs bg-red-200 rounded px-1">Descanso</div>}
+                    </div>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
-        )}
+        </div>
       </div>
     </div>
   )
