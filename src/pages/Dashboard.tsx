@@ -1,4 +1,3 @@
-
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
@@ -17,6 +16,7 @@ import PlanRecommendations from '@/components/dashboard/PlanRecommendations'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Activity, Target, TrendingUp, Clock } from 'lucide-react'
 import { getStravaActivities } from '@/lib/database'
+import MCPStatusMonitor from '@/components/dashboard/MCPStatusMonitor'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
@@ -109,12 +109,13 @@ const Dashboard: React.FC = () => {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="plans">Planos</TabsTrigger>
             <TabsTrigger value="analytics">Análises</TabsTrigger>
             <TabsTrigger value="feedback">Feedback</TabsTrigger>
             <TabsTrigger value="chat">TrainerAI</TabsTrigger>
+            <TabsTrigger value="mcp">Protocolo MCP</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -190,6 +191,10 @@ const Dashboard: React.FC = () => {
 
           <TabsContent value="chat" className="space-y-6">
             <AIChat />
+          </TabsContent>
+
+          <TabsContent value="mcp" className="space-y-6">
+            <MCPStatusMonitor />
           </TabsContent>
         </Tabs>
       </div>

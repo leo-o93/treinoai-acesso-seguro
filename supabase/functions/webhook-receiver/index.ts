@@ -63,6 +63,12 @@ serve(async (req) => {
         )
       }
 
+      // Verificar se é uma mensagem MCP
+      if (body.mcp_version && body.type && body.source) {
+        console.log('=== MENSAGEM MCP DETECTADA ===')
+        return await processMCPMessage(body, supabaseClient)
+      }
+
       // Extrair dados das mensagens
       const userMessage = body.userMessage || body.message
       const aiResponse = body.aiResponse || body.response || body.conversation
@@ -264,6 +270,13 @@ serve(async (req) => {
       )
     }
 
+    // Handle MCP messages from frontend
+    if (url.pathname.includes('/mcp') || (await req.json()).source === 'trainerai_frontend') {
+      const body = await req.json()
+      console.log('=== MENSAGEM MCP DO FRONTEND ===')
+      return await processMCPMessage(body.data, supabaseClient)
+    }
+
     // Handle existing webhook functionality for other routes
     const body = await req.json()
     const { source, eventType, data, userId } = body
@@ -361,379 +374,257 @@ serve(async (req) => {
   }
 })
 
-// NOVA FUNÇÃO: Extrair atividades do Strava da resposta da IA
-async function extractStravaActivities(aiResponse: string, userId: string, supabaseClient: any) {
-  const activities = []
-  
-  console.log('=== INICIANDO EXTRAÇÃO DE ATIVIDADES STRAVA ===')
-  console.log('AI Response length:', aiResponse.length)
-  
-  // Regex patterns para extrair atividades do Strava das respostas da IA
-  const activityPattern = /\d+\.\s\*\*(.*?)\*\*\s*\n\s*-\s\*\*Data:\*\*\s(.*?)\n\s*-\s\*\*Distância:\*\*\s(.*?)\s*km\s*\n\s*-\s\*\*Tempo em Movimento:\*\*\s(.*?)\n\s*-\s\*\*Ganho de Elevação:\*\*\s(.*?)\s*m/g
-  
-  let match
-  let matchCount = 0
-  while ((match = activityPattern.exec(aiResponse)) !== null) {
-    matchCount++
-    const [, name, dateStr, distanceStr, timeStr, elevationStr] = match
-    
-    console.log(`Atividade ${matchCount} encontrada:`, { name, dateStr, distanceStr, timeStr, elevationStr })
-    
-    try {
-      // Parse da data
-      const startDate = parsePortugueseDate(dateStr.trim())
-      
-      // Parse da distância (remover vírgulas e converter para metros)
-      const distance = parseFloat(distanceStr.replace(',', '.')) * 1000
-      
-      // Parse do tempo (converter para segundos)
-      const movingTime = parsePortugueseTime(timeStr.trim())
-      
-      // Parse da elevação
-      const totalElevationGain = parseFloat(elevationStr.replace(',', '.'))
-      
-      // Gerar ID único para a atividade baseado nos dados
-      const stravaActivityId = `extracted_${Date.now()}_${matchCount}`
-      
-      const activityData = {
-        user_id: userId,
-        strava_activity_id: stravaActivityId,
-        name: name.trim(),
-        type: 'Run', // Assumir corrida por padrão
-        distance: distance,
-        moving_time: movingTime,
-        elapsed_time: movingTime,
-        total_elevation_gain: totalElevationGain,
-        start_date: startDate.toISOString(),
-        achievement_count: 0,
-        kudos_count: 0
+// Nova função para processar mensagens MCP
+async function processMCPMessage(mcpMessage: any, supabaseClient: any) {
+  try {
+    console.log('Processando mensagem MCP:', JSON.stringify(mcpMessage, null, 2))
+
+    // Validar estrutura MCP
+    if (!mcpMessage.mcp_version || !mcpMessage.type || !mcpMessage.session_id) {
+      throw new Error('Estrutura MCP inválida: campos obrigatórios ausentes')
+    }
+
+    // Processar baseado no tipo de mensagem
+    let processedData = null
+    switch (mcpMessage.type) {
+      case 'new_plan':
+        processedData = await processMCPNewPlan(mcpMessage, supabaseClient)
+        break
+      case 'progress_update':
+        processedData = await processMCPProgressUpdate(mcpMessage, supabaseClient)
+        break
+      case 'feedback_request':
+        processedData = await processMCPFeedbackRequest(mcpMessage, supabaseClient)
+        break
+      case 'plan_adjustment':
+        processedData = await processMCPPlanAdjustment(mcpMessage, supabaseClient)
+        break
+      case 'system_notification':
+        processedData = await processMCPSystemNotification(mcpMessage, supabaseClient)
+        break
+      default:
+        console.log('Tipo MCP não implementado:', mcpMessage.type)
+        processedData = { message: 'Tipo de mensagem MCP recebido mas não processado' }
+    }
+
+    // Log da mensagem MCP
+    await supabaseClient
+      .from('webhook_logs')
+      .insert({
+        source: `mcp_${mcpMessage.source === 'trainerai-frontend' ? 'outbound' : 'inbound'}`,
+        event_type: `mcp_${mcpMessage.type}`,
+        payload: {
+          mcp_message: mcpMessage,
+          processed_data: processedData,
+          processed_at: new Date().toISOString()
+        },
+        processed: true
+      })
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        mcp_version: mcpMessage.mcp_version,
+        type: mcpMessage.type,
+        processed: true,
+        data: processedData,
+        timestamp: new Date().toISOString()
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-      
-      console.log('Dados da atividade para salvar:', activityData)
-      
-      const { data: savedActivity, error } = await supabaseClient
-        .from('strava_activities')
-        .upsert(activityData, { onConflict: 'strava_activity_id' })
-        .select()
-        .single()
-      
-      if (error) {
-        console.error('Erro ao salvar atividade:', error)
-      } else {
-        console.log('Atividade salva com sucesso:', savedActivity)
-        activities.push(savedActivity)
+    )
+
+  } catch (error) {
+    console.error('Erro ao processar mensagem MCP:', error)
+    
+    // Log do erro MCP
+    await supabaseClient
+      .from('webhook_logs')
+      .insert({
+        source: 'mcp_error',
+        event_type: 'mcp_processing_error',
+        payload: {
+          mcp_message: mcpMessage,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        },
+        processed: false,
+        error_message: error.message
+      })
+
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message,
+        mcp_version: mcpMessage.mcp_version || 'unknown',
+        timestamp: new Date().toISOString()
+      }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    } catch (error) {
-      console.error('Erro ao processar atividade:', error)
-    }
+    )
   }
-  
-  console.log(`=== EXTRAÇÃO DE ATIVIDADES COMPLETA: ${activities.length} atividades salvas ===`)
-  return activities
 }
 
-// Função auxiliar para converter data em português para Date
-function parsePortugueseDate(dateStr: string): Date {
-  // Ex: "31 de Maio de 2025"
-  const months = {
-    'janeiro': 0, 'fevereiro': 1, 'março': 2, 'abril': 3,
-    'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
-    'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
-  }
+// Processadores específicos para tipos MCP
+async function processMCPNewPlan(mcpMessage: any, supabaseClient: any) {
+  console.log('Processando novo plano MCP:', mcpMessage.payload)
   
-  const match = dateStr.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d+)/)
-  if (match) {
-    const day = parseInt(match[1])
-    const month = months[match[2].toLowerCase()]
-    const year = parseInt(match[3])
-    return new Date(year, month, day)
-  }
-  
-  // Fallback para hoje
-  return new Date()
-}
+  const userId = await getUserIdFromSession(mcpMessage.session_id, supabaseClient)
+  const payload = mcpMessage.payload
 
-// Função auxiliar para converter tempo em português para segundos
-function parsePortugueseTime(timeStr: string): number {
-  // Ex: "1h 14m 39s" ou "54m 44s"
-  let totalSeconds = 0
-  
-  const hourMatch = timeStr.match(/(\d+)h/)
-  if (hourMatch) {
-    totalSeconds += parseInt(hourMatch[1]) * 3600
-  }
-  
-  const minMatch = timeStr.match(/(\d+)m/)
-  if (minMatch) {
-    totalSeconds += parseInt(minMatch[1]) * 60
-  }
-  
-  const secMatch = timeStr.match(/(\d+)s/)
-  if (secMatch) {
-    totalSeconds += parseInt(secMatch[1])
-  }
-  
-  return totalSeconds
-}
+  let savedEvents = []
 
-// Função para extrair eventos estruturados da resposta da IA
-async function extractStructuredEvents(aiResponse: string, userId: string, supabaseClient: any) {
-  const events = []
-  
-  console.log('=== INICIANDO EXTRAÇÃO DE EVENTOS ===')
-  console.log('AI Response length:', aiResponse.length)
-  
-  // Regex patterns para extrair eventos estruturados
-  const eventPattern = /\d+\.\s\*\*(.*?)\*\*\s*\n\s*-\s\*\*Horário:\*\*\s(.*?)\n\s*-\s\*\*Descrição:\*\*(.*?)(?:\n\s*-\s\[Link do Evento\]\((.*?)\))?/g
-  
-  let match
-  let matchCount = 0
-  while ((match = eventPattern.exec(aiResponse)) !== null) {
-    matchCount++
-    const [, title, timeRange, description, eventLink] = match
-    
-    console.log(`Evento ${matchCount} encontrado:`, { title, timeRange, description, eventLink })
-    
-    // Parse do horário
-    const timeMatch = timeRange.match(/(\d{2}):(\d{2})\s*-\s*(\d{2}):(\d{2})/)
-    if (!timeMatch) {
-      console.log('Não foi possível fazer parse do horário:', timeRange)
-      continue
-    }
-    
-    const [, startHour, startMin, endHour, endMin] = timeMatch
-    
-    // Criar datas para hoje (ou próximo dia baseado no contexto)
-    const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(today.getDate() + 1)
-    
-    // Determinar se é para hoje ou amanhã baseado no contexto
-    const targetDate = aiResponse.includes('amanhã') || aiResponse.includes('terça') ? tomorrow : today
-    
-    const startTime = new Date(targetDate)
-    startTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0)
-    
-    const endTime = new Date(targetDate)
-    endTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0)
-    
-    // Determinar tipo do evento
-    const eventType = categorizeEventType(title.trim(), description.trim())
-    
-    const eventData = {
-      user_id: userId,
-      title: title.trim(),
-      description: description.trim(),
-      event_type: eventType,
-      start_time: startTime.toISOString(),
-      end_time: endTime.toISOString(),
-      status: 'scheduled',
-      google_event_id: extractEventIdFromLink(eventLink)
-    }
-    
-    console.log('Dados do evento para salvar:', eventData)
-    
-    try {
-      const { data: savedEvent, error } = await supabaseClient
+  // Processar plano de treino
+  if (payload.workout && Array.isArray(payload.workout)) {
+    for (const workout of payload.workout) {
+      const { data: eventData } = await supabaseClient
         .from('calendar_events')
-        .insert(eventData)
+        .insert({
+          user_id: userId,
+          title: workout.summary,
+          description: workout.description,
+          event_type: 'workout',
+          start_time: workout.date,
+          end_time: new Date(new Date(workout.date).getTime() + (workout.duration_minutes || 60) * 60000).toISOString(),
+          status: 'scheduled'
+        })
         .select()
         .single()
-      
-      if (error) {
-        console.error('Erro ao salvar evento:', error)
-      } else {
-        console.log('Evento salvo com sucesso:', savedEvent)
-        events.push(savedEvent)
-      }
-    } catch (error) {
-      console.error('Erro ao processar evento:', error)
+
+      if (eventData) savedEvents.push(eventData)
     }
   }
-  
-  console.log(`=== EXTRAÇÃO COMPLETA: ${events.length} eventos salvos ===`)
-  return events
-}
 
-// Função para categorizar tipo de evento
-function categorizeEventType(title: string, description: string): string {
-  const titleLower = title.toLowerCase()
-  const descLower = description.toLowerCase()
-  
-  // Detectar treinos
-  if (titleLower.includes('treino') || 
-      descLower.includes('agachamento') || 
-      descLower.includes('flexão') || 
-      descLower.includes('remada') ||
-      descLower.includes('exerc') ||
-      descLower.includes('academia')) {
-    return 'workout'
+  // Processar plano de dieta
+  if (payload.diet && Array.isArray(payload.diet)) {
+    for (const meal of payload.diet) {
+      const { data: eventData } = await supabaseClient
+        .from('calendar_events')
+        .insert({
+          user_id: userId,
+          title: meal.summary,
+          description: meal.description,
+          event_type: 'meal',
+          start_time: meal.date,
+          end_time: new Date(new Date(meal.date).getTime() + 30 * 60000).toISOString(),
+          status: 'scheduled'
+        })
+        .select()
+        .single()
+
+      if (eventData) savedEvents.push(eventData)
+    }
   }
-  
-  // Detectar refeições
-  if (titleLower.includes('café') || 
-      titleLower.includes('almoço') || 
-      titleLower.includes('jantar') || 
-      titleLower.includes('lanche') ||
-      titleLower.includes('ceia') ||
-      descLower.includes('carne') ||
-      descLower.includes('arroz') ||
-      descLower.includes('fruta')) {
-    return 'meal'
+
+  return {
+    message: 'Novo plano processado via MCP',
+    events_created: savedEvents.length,
+    user_id: userId
   }
-  
-  return 'general'
 }
 
-// Função para extrair ID do evento do Google Calendar
-function extractEventIdFromLink(eventLink: string): string | null {
-  if (!eventLink) return null
+async function processMCPProgressUpdate(mcpMessage: any, supabaseClient: any) {
+  console.log('Processando atualização de progresso MCP:', mcpMessage.payload)
   
-  const match = eventLink.match(/eid=([^&\s]+)/)
-  return match ? match[1] : null
-}
+  const userId = await getUserIdFromSession(mcpMessage.session_id, supabaseClient)
+  const payload = mcpMessage.payload
 
-// Função para categorizar mensagens
-function categorizeMessage(message: string): string {
-  const lowerMessage = message.toLowerCase()
-  
-  if (lowerMessage.includes('treino') || lowerMessage.includes('exerc') || lowerMessage.includes('academia')) {
-    return 'treino'
+  // Marcar atividades como completadas
+  if (payload.completed && Array.isArray(payload.completed)) {
+    for (const completedActivity of payload.completed) {
+      await supabaseClient
+        .from('calendar_events')
+        .update({ status: 'completed' })
+        .eq('user_id', userId)
+        .eq('start_time', completedActivity)
+    }
   }
-  
-  if (lowerMessage.includes('dieta') || lowerMessage.includes('alimenta') || lowerMessage.includes('nutri') || lowerMessage.includes('comida')) {
-    return 'nutricao'
+
+  // Salvar feedback se fornecido
+  if (payload.feedback) {
+    await supabaseClient
+      .from('weekly_feedback')
+      .insert({
+        user_id: userId,
+        week_start: new Date().toISOString().split('T')[0],
+        feedback_text: payload.feedback,
+        adherence_score: payload.rating || 5,
+        energy_level: payload.rating || 5,
+        difficulty_level: payload.rating || 5
+      })
   }
-  
-  if (lowerMessage.includes('agenda') || lowerMessage.includes('horario') || lowerMessage.includes('quando') || lowerMessage.includes('calendario')) {
-    return 'agendamento'
+
+  return {
+    message: 'Progresso atualizado via MCP',
+    completed_count: payload.completed?.length || 0,
+    has_feedback: !!payload.feedback
   }
+}
+
+async function processMCPFeedbackRequest(mcpMessage: any, supabaseClient: any) {
+  console.log('Processando solicitação de feedback MCP:', mcpMessage.payload)
   
-  if (lowerMessage.includes('strava') || lowerMessage.includes('atividade') || lowerMessage.includes('corrida') || lowerMessage.includes('performance')) {
-    return 'strava'
+  return {
+    message: 'Solicitação de feedback processada via MCP',
+    plan_type: mcpMessage.payload.plan_type,
+    request_time: mcpMessage.payload.request_time
   }
+}
+
+async function processMCPPlanAdjustment(mcpMessage: any, supabaseClient: any) {
+  console.log('Processando ajuste de plano MCP:', mcpMessage.payload)
   
-  return 'geral'
+  const userId = await getUserIdFromSession(mcpMessage.session_id, supabaseClient)
+  const payload = mcpMessage.payload
+
+  // Salvar ajustes solicitados
+  if (payload.feedback) {
+    await supabaseClient
+      .from('weekly_feedback')
+      .insert({
+        user_id: userId,
+        week_start: new Date().toISOString().split('T')[0],
+        feedback_text: payload.feedback,
+        plan_adjustments: payload.adjustments_requested?.join(', '),
+        adherence_score: 5,
+        energy_level: 5,
+        difficulty_level: 5
+      })
+  }
+
+  return {
+    message: 'Ajuste de plano processado via MCP',
+    adjustments: payload.adjustments_requested || [],
+    user_id: userId
+  }
 }
 
-async function processStravaData(supabaseClient: any, userId: string, data: any) {
-  const { error } = await supabaseClient
-    .from('strava_activities')
-    .upsert({
-      user_id: userId,
-      strava_activity_id: data.id.toString(),
-      name: data.name,
-      type: data.type,
-      distance: data.distance ? data.distance / 1000 : null, // Convert to km
-      moving_time: data.moving_time,
-      elapsed_time: data.elapsed_time,
-      total_elevation_gain: data.total_elevation_gain,
-      average_speed: data.average_speed,
-      max_speed: data.max_speed,
-      average_heartrate: data.average_heartrate,
-      max_heartrate: data.max_heartrate,
-      calories: data.calories,
-      start_date: data.start_date,
-      achievement_count: data.achievement_count || 0,
-      kudos_count: data.kudos_count || 0
-    }, {
-      onConflict: 'strava_activity_id'
-    })
-
-  if (error) throw error
+async function processMCPSystemNotification(mcpMessage: any, supabaseClient: any) {
+  console.log('Processando notificação do sistema MCP:', mcpMessage.payload)
+  
+  return {
+    message: 'Notificação do sistema processada via MCP',
+    notification: mcpMessage.payload
+  }
 }
 
-async function processTrainingPlan(supabaseClient: any, userId: string, data: any) {
-  const { error } = await supabaseClient
-    .from('training_plans')
-    .insert({
-      user_id: userId,
-      title: data.title,
-      description: data.description,
-      duration_weeks: data.duration_weeks,
-      difficulty_level: data.difficulty_level,
-      plan_data: data.plan_data,
-      status: data.status || 'active',
-      created_by_ai: true
-    })
+async function getUserIdFromSession(sessionId: string, supabaseClient: any): Promise<string> {
+  try {
+    const phone = sessionId.replace('whatsapp_', '').replace('@c.us', '').replace('@s.whatsapp.net', '')
+    
+    const { data: profile } = await supabaseClient
+      .from('user_profiles')
+      .select('user_id')
+      .eq('whatsapp_phone', phone)
+      .single()
 
-  if (error) throw error
-}
-
-async function processNutritionPlan(supabaseClient: any, userId: string, data: any) {
-  const { error } = await supabaseClient
-    .from('nutrition_plans')
-    .insert({
-      user_id: userId,
-      title: data.title,
-      description: data.description,
-      daily_calories: data.daily_calories,
-      macros: data.macros,
-      meal_plan: data.meal_plan,
-      restrictions: data.restrictions,
-      status: data.status || 'active',
-      created_by_ai: true
-    })
-
-  if (error) throw error
-}
-
-async function processCalendarEvent(supabaseClient: any, userId: string, data: any) {
-  const { error } = await supabaseClient
-    .from('calendar_events')
-    .upsert({
-      user_id: userId,
-      google_event_id: data.google_event_id,
-      title: data.title,
-      description: data.description,
-      event_type: data.event_type,
-      start_time: data.start_time,
-      end_time: data.end_time,
-      location: data.location,
-      status: data.status || 'scheduled'
-    }, {
-      onConflict: 'google_event_id'
-    })
-
-  if (error) throw error
-}
-
-async function processAIConversation(supabaseClient: any, userId: string, data: any) {
-  const { error } = await supabaseClient
-    .from('ai_conversations')
-    .insert({
-      user_id: userId,
-      session_id: data.session_id,
-      message_type: data.message_type,
-      content: data.content,
-      context: data.context
-    })
-
-  if (error) throw error
-}
-
-async function processUserProfile(supabaseClient: any, userId: string, data: any) {
-  const { error } = await supabaseClient
-    .from('user_profiles')
-    .upsert({
-      user_id: userId,
-      name: data.name,
-      objective: data.objective,
-      deadline: data.deadline,
-      weight: data.weight,
-      height: data.height,
-      age: data.age,
-      food_preferences: data.food_preferences,
-      restrictions: data.restrictions,
-      training_frequency: data.training_frequency,
-      experience_level: data.experience_level,
-      strava_connected: data.strava_connected,
-      strava_athlete_id: data.strava_athlete_id,
-      whatsapp_phone: data.whatsapp_phone,
-      updated_at: new Date().toISOString()
-    }, {
-      onConflict: 'user_id'
-    })
-
-  if (error) throw error
+    return profile?.user_id || '48a7ab75-4bae-4b6b-8ae5-bce83d5ba595' // fallback
+  } catch (error) {
+    console.error('Erro ao buscar user_id:', error)
+    return '48a7ab75-4bae-4b6b-8ae5-bce83d5ba595' // fallback
+  }
 }
