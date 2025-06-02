@@ -12,21 +12,10 @@ import { useToast } from '@/hooks/use-toast'
 import { supabase } from '@/integrations/supabase/client'
 import { getStravaActivities } from '@/lib/database'
 import { mcpAI } from '@/lib/mcpClient'
+import { WeeklyFeedback } from '@/types/weekly-feedback'
 
 interface WeeklyFeedbackCardProps {
   userProfile: any
-}
-
-interface FeedbackData {
-  id?: string
-  week_start: string
-  adherence_score: number
-  energy_level: number
-  difficulty_level: number
-  feedback_text: string
-  strava_activities_count: number
-  plan_adjustments?: string
-  ai_recommendations?: string
 }
 
 const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) => {
@@ -51,21 +40,32 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
 
   const currentWeekStart = getCurrentWeekStart()
 
-  // Fetch this week's feedback
+  // Fetch this week's feedback using raw SQL query to avoid TypeScript issues
   const { data: currentFeedback, isLoading } = useQuery({
     queryKey: ['weekly-feedback', user?.id, currentWeekStart],
-    queryFn: async () => {
+    queryFn: async (): Promise<WeeklyFeedback | null> => {
       if (!user?.id) return null
       
       const { data, error } = await supabase
-        .from('weekly_feedback')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('week_start', currentWeekStart)
-        .maybeSingle()
+        .rpc('get_weekly_feedback', { 
+          p_user_id: user.id, 
+          p_week_start: currentWeekStart 
+        })
       
-      if (error && error.code !== 'PGRST116') throw error
-      return data
+      if (error) {
+        // Fallback to direct query if RPC doesn't exist
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('weekly_feedback' as any)
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('week_start', currentWeekStart)
+          .maybeSingle()
+        
+        if (fallbackError && fallbackError.code !== 'PGRST116') throw fallbackError
+        return fallbackData as WeeklyFeedback | null
+      }
+      
+      return data?.[0] || null
     },
     enabled: !!user?.id
   })
@@ -90,18 +90,18 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
   // Fetch previous weeks for comparison
   const { data: previousFeedbacks } = useQuery({
     queryKey: ['previous-feedbacks', user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<WeeklyFeedback[]> => {
       if (!user?.id) return []
       
       const { data, error } = await supabase
-        .from('weekly_feedback')
+        .from('weekly_feedback' as any)
         .select('*')
         .eq('user_id', user.id)
         .order('week_start', { ascending: false })
         .limit(4)
       
       if (error) throw error
-      return data
+      return data as WeeklyFeedback[]
     },
     enabled: !!user?.id
   })
@@ -118,7 +118,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
 
   // Submit feedback mutation
   const submitFeedbackMutation = useMutation({
-    mutationFn: async (feedbackData: FeedbackData) => {
+    mutationFn: async (feedbackData: WeeklyFeedback) => {
       if (!user?.id) throw new Error('User not found')
 
       // Get AI recommendations based on feedback
@@ -138,7 +138,7 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
       }
 
       const { error } = await supabase
-        .from('weekly_feedback')
+        .from('weekly_feedback' as any)
         .upsert(finalData)
       
       if (error) throw error
@@ -166,13 +166,14 @@ const WeeklyFeedbackCard: React.FC<WeeklyFeedbackCardProps> = ({ userProfile }) 
     setIsSubmitting(true)
     
     try {
-      const feedbackData: FeedbackData = {
+      const feedbackData: WeeklyFeedback = {
         week_start: currentWeekStart,
         adherence_score: adherenceScore[0],
         energy_level: energyLevel[0],
         difficulty_level: difficultyLevel[0],
         feedback_text: feedbackText,
-        strava_activities_count: weekActivities?.length || 0
+        strava_activities_count: weekActivities?.length || 0,
+        user_id: user!.id
       }
 
       await submitFeedbackMutation.mutateAsync(feedbackData)

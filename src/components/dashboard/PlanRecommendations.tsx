@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useQuery } from '@tanstack/react-query'
 import { getStravaActivities } from '@/lib/database'
 import { supabase } from '@/integrations/supabase/client'
+import { WeeklyFeedback } from '@/types/weekly-feedback'
 
 interface Recommendation {
   id: string
@@ -32,18 +33,18 @@ const PlanRecommendations: React.FC = () => {
 
   const { data: weeklyFeedbacks } = useQuery({
     queryKey: ['recommendations-feedbacks', user?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<WeeklyFeedback[]> => {
       if (!user?.id) return []
       
       const { data, error } = await supabase
-        .from('weekly_feedback')
+        .from('weekly_feedback' as any)
         .select('*')
         .eq('user_id', user.id)
         .order('week_start', { ascending: false })
         .limit(4)
       
       if (error) throw error
-      return data
+      return data as WeeklyFeedback[]
     },
     enabled: !!user?.id
   })

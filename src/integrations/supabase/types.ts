@@ -539,6 +539,51 @@ export type Database = {
         }
         Relationships: []
       }
+      weekly_feedback: {
+        Row: {
+          adherence_score: number
+          ai_recommendations: string | null
+          created_at: string
+          difficulty_level: number
+          energy_level: number
+          feedback_text: string | null
+          id: string
+          plan_adjustments: string | null
+          strava_activities_count: number | null
+          updated_at: string
+          user_id: string
+          week_start: string
+        }
+        Insert: {
+          adherence_score: number
+          ai_recommendations?: string | null
+          created_at?: string
+          difficulty_level: number
+          energy_level: number
+          feedback_text?: string | null
+          id?: string
+          plan_adjustments?: string | null
+          strava_activities_count?: number | null
+          updated_at?: string
+          user_id: string
+          week_start: string
+        }
+        Update: {
+          adherence_score?: number
+          ai_recommendations?: string | null
+          created_at?: string
+          difficulty_level?: number
+          energy_level?: number
+          feedback_text?: string | null
+          id?: string
+          plan_adjustments?: string | null
+          strava_activities_count?: number | null
+          updated_at?: string
+          user_id?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
