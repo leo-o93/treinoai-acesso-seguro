@@ -4,8 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useIntegrationStatus } from '@/hooks/useIntegrationStatus'
+import { useIntegrationsAPI } from '@/hooks/useIntegrationsAPI'
+import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
 import { toast } from 'sonner'
+import { RefreshCw } from 'lucide-react'
 
 interface OAuthCardProps {
   provider: 'google' | 'strava'
@@ -20,12 +23,15 @@ export const OAuthCard: React.FC<OAuthCardProps> = ({
   description,
   icon
 }) => {
+  const { user } = useAuth()
   const { integration, isLoading, refetch } = useIntegrationStatus(provider)
+  const { disconnect, isDisconnecting, refreshTokens, isRefreshing } = useIntegrationsAPI(user?.id)
   const [connecting, setConnecting] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
 
-  // Temporariamente desabilitar Strava
-  if (provider === 'strava') {
+  // Habilitar Strava agora
+  const isProviderEnabled = true // Removendo a desabilitação do Strava
+
+  if (!isProviderEnabled && provider === 'strava') {
     return (
       <Card className="opacity-50">
         <CardHeader>
@@ -62,7 +68,6 @@ export const OAuthCard: React.FC<OAuthCardProps> = ({
       if (error) {
         console.error(`Erro ao iniciar OAuth ${provider}:`, error)
         
-        // Tratamento específico de erros
         if (error.message?.includes('configuration')) {
           toast.error('Erro de configuração. Entre em contato com o suporte.')
         } else {
@@ -89,26 +94,21 @@ export const OAuthCard: React.FC<OAuthCardProps> = ({
   const handleDisconnect = async () => {
     if (!integration) return
     
-    setDisconnecting(true)
     try {
-      const { error } = await supabase
-        .from('user_integrations')
-        .delete()
-        .eq('id', integration.id)
-
-      if (error) {
-        console.error(`Erro ao desconectar ${provider}:`, error)
-        toast.error(`Erro ao desconectar ${title}`)
-        return
-      }
-
-      toast.success(`${title} desconectado com sucesso`)
+      disconnect({ provider })
       refetch()
     } catch (error) {
       console.error(`Erro inesperado ao desconectar ${provider}:`, error)
       toast.error(`Erro inesperado ao desconectar ${title}`)
-    } finally {
-      setDisconnecting(false)
+    }
+  }
+
+  const handleRefreshTokens = async () => {
+    try {
+      refreshTokens()
+      setTimeout(() => refetch(), 1000) // Aguardar um pouco antes de atualizar
+    } catch (error) {
+      console.error('Erro ao atualizar tokens:', error)
     }
   }
 
@@ -158,12 +158,21 @@ export const OAuthCard: React.FC<OAuthCardProps> = ({
                 </Button>
               )}
               <Button 
-                onClick={handleDisconnect}
-                disabled={disconnecting || isLoading}
-                variant="destructive"
-                className={isTokenExpired ? 'flex-1' : 'w-full'}
+                onClick={handleRefreshTokens}
+                disabled={isRefreshing || isLoading}
+                variant="outline"
+                size="sm"
+                className="px-3"
               >
-                {disconnecting ? 'Desconectando...' : 'Desconectar'}
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button 
+                onClick={handleDisconnect}
+                disabled={isDisconnecting || isLoading}
+                variant="destructive"
+                className={isTokenExpired ? 'flex-1' : 'flex-1'}
+              >
+                {isDisconnecting ? 'Desconectando...' : 'Desconectar'}
               </Button>
             </>
           )}
@@ -172,6 +181,12 @@ export const OAuthCard: React.FC<OAuthCardProps> = ({
         {isConnected && integration.created_at && (
           <p className="text-sm text-gray-500 mt-2">
             Conectado em {new Date(integration.created_at).toLocaleDateString('pt-BR')}
+            {integration.expires_at && (
+              <>
+                <br />
+                Expira em {new Date(integration.expires_at).toLocaleDateString('pt-BR')} às {new Date(integration.expires_at).toLocaleTimeString('pt-BR')}
+              </>
+            )}
           </p>
         )}
       </CardContent>
