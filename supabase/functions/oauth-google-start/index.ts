@@ -43,7 +43,8 @@ serve(async (req) => {
     console.log('=== INICIANDO OAUTH GOOGLE ===')
     console.log('User ID:', user.id)
 
-    const baseUrl = req.url.includes('localhost') ? 'http://localhost:54321' : `https://${Deno.env.get('SUPABASE_PROJECT_REF')}.supabase.co`
+    // Usar o project ID correto
+    const baseUrl = req.url.includes('localhost') ? 'http://localhost:54321' : 'https://shhkccidqvvrwgxlyvqq.supabase.co'
     const redirectUri = `${baseUrl}/functions/v1/oauth-google-callback`
     
     // Configurações do Google OAuth

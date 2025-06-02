@@ -1,13 +1,43 @@
 
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { Navbar } from '@/components/layout/Navbar'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { OAuthCard } from '@/components/integrations/OAuthCard'
 import { IntegrationsList } from '@/components/integrations/IntegrationsList'
+import { toast } from 'sonner'
 
 const Integracoes = () => {
   const { user, loading } = useAuth()
+
+  useEffect(() => {
+    // Verificar parâmetros de URL para mostrar status da integração
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get('success')
+    const error = urlParams.get('error')
+
+    if (success === 'google_connected') {
+      toast.success('Google Calendar conectado com sucesso!')
+    } else if (success === 'strava_connected') {
+      toast.success('Strava conectado com sucesso!')
+    } else if (error) {
+      const errorMessages: { [key: string]: string } = {
+        'access_denied': 'Acesso negado pelo usuário',
+        'invalid_callback': 'Erro no callback de autenticação',
+        'token_exchange_failed': 'Falha ao trocar tokens de acesso',
+        'database_error': 'Erro ao salvar integração no banco de dados',
+        'internal_error': 'Erro interno do servidor'
+      }
+      
+      const errorMessage = errorMessages[error] || 'Erro desconhecido na integração'
+      toast.error(`Erro na integração: ${errorMessage}`)
+    }
+
+    // Limpar parâmetros da URL após mostrar a mensagem
+    if (success || error) {
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
 
   if (loading) {
     return (

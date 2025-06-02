@@ -48,8 +48,8 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Trocar o code por tokens
-    const baseUrl = req.url.includes('localhost') ? 'http://localhost:54321' : `https://${Deno.env.get('SUPABASE_PROJECT_REF')}.supabase.co`
+    // Trocar o code por tokens com URL corrigida
+    const baseUrl = req.url.includes('localhost') ? 'http://localhost:54321' : 'https://shhkccidqvvrwgxlyvqq.supabase.co'
     const redirectUri = `${baseUrl}/functions/v1/oauth-google-callback`
     
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {

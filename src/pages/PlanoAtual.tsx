@@ -5,9 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Navbar } from '@/components/layout/Navbar'
 import { Calendar, Clock, Target, TrendingUp } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 
 const PlanoAtual = () => {
   const { user, loading } = useAuth()
+  const navigate = useNavigate()
 
   if (loading) {
     return (
@@ -81,7 +83,10 @@ const PlanoAtual = () => {
                     </div>
                   </div>
                   
-                  <Button className="w-full">
+                  <Button 
+                    className="w-full"
+                    onClick={() => navigate('/plano/treino-detalhado')}
+                  >
                     Ver Detalhes do Treino
                   </Button>
                 </div>
@@ -102,15 +107,15 @@ const PlanoAtual = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div className="p-2 bg-green-50 rounded">
-                      <p className="text-lg font-bold text-green-600">2,200</p>
+                      <p className="text-lg font-bold text-green-600">2,600</p>
                       <p className="text-xs text-gray-600">Calorias</p>
                     </div>
                     <div className="p-2 bg-blue-50 rounded">
-                      <p className="text-lg font-bold text-blue-600">140g</p>
+                      <p className="text-lg font-bold text-blue-600">160g</p>
                       <p className="text-xs text-gray-600">Proteína</p>
                     </div>
                     <div className="p-2 bg-orange-50 rounded">
-                      <p className="text-lg font-bold text-orange-600">60g</p>
+                      <p className="text-lg font-bold text-orange-600">72g</p>
                       <p className="text-xs text-gray-600">Gordura</p>
                     </div>
                   </div>
@@ -124,7 +129,11 @@ const PlanoAtual = () => {
                     </div>
                   </div>
                   
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => navigate('/plano/nutricao-completa')}
+                  >
                     Ver Plano Completo
                   </Button>
                 </div>

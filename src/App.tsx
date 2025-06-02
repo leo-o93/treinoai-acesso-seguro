@@ -15,6 +15,8 @@ import NotFound from "./pages/NotFound"
 import SignIn from "./components/auth/SignIn"
 import SignUp from "./components/auth/SignUp"
 import ResetPassword from "./components/auth/ResetPassword"
+import DetailedTrainingPlan from "./components/plans/DetailedTrainingPlan"
+import DetailedNutritionPlan from "./components/plans/DetailedNutritionPlan"
 import withAuth from "./components/auth/withAuth"
 
 const queryClient = new QueryClient()
@@ -25,6 +27,8 @@ const ProtectedPerfil = withAuth(Perfil)
 const ProtectedPlanoAtual = withAuth(PlanoAtual)
 const ProtectedIntegracoes = withAuth(Integracoes)
 const ProtectedOperator = withAuth(Operator)
+const ProtectedDetailedTrainingPlan = withAuth(DetailedTrainingPlan)
+const ProtectedDetailedNutritionPlan = withAuth(DetailedNutritionPlan)
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -41,6 +45,8 @@ const App = () => (
             <Route path="/dashboard" element={<ProtectedDashboard />} />
             <Route path="/perfil" element={<ProtectedPerfil />} />
             <Route path="/plano" element={<ProtectedPlanoAtual />} />
+            <Route path="/plano/treino-detalhado" element={<ProtectedDetailedTrainingPlan />} />
+            <Route path="/plano/nutricao-completa" element={<ProtectedDetailedNutritionPlan />} />
             <Route path="/integracoes" element={<ProtectedIntegracoes />} />
             <Route path="/operator" element={<ProtectedOperator />} />
             <Route path="*" element={<NotFound />} />
