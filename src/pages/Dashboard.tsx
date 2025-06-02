@@ -4,9 +4,6 @@ import { useAuth } from '@/hooks/useAuth'
 import { useDataProcessor } from '@/hooks/useDataProcessor'
 import Navbar from '@/components/layout/Navbar'
 import DataVisualization from '@/components/dashboard/DataVisualization'
-import ConversationViewer from '@/components/dashboard/ConversationViewer'
-import TrainerAIMessages from '@/components/dashboard/TrainerAIMessages'
-import MCPStatusMonitor from '@/components/dashboard/MCPStatusMonitor'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,8 +11,6 @@ import { Badge } from '@/components/ui/badge'
 import { 
   RefreshCw, 
   BarChart3, 
-  MessageCircle, 
-  Settings,
   Brain,
   Activity,
   Calendar,
@@ -25,19 +20,6 @@ import {
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
   const { data, isLoading, error, refreshData } = useDataProcessor()
-
-  const conversations = data ? data.insights.map((insight, index) => ({
-    id: `conv-${index}`,
-    userMessage: 'Mensagem processada do WhatsApp',
-    aiResponse: insight.description,
-    timestamp: insight.createdAt,
-    category: insight.type === 'progress' ? 'strava_atividades' : 'agenda_treino',
-    extractedData: {
-      workouts: data.workoutPlans.length,
-      meals: data.nutritionPlans.length,
-      events: data.calendarEvents.length
-    }
-  })) : []
 
   if (error) {
     return (
@@ -68,7 +50,7 @@ const Dashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              TrainerAI - Dashboard Inteligente
+              TrainerAI - Dashboard Visual
             </h1>
             <p className="text-gray-600">
               Análises visuais dos seus dados coletados pelo agente IA
@@ -126,20 +108,12 @@ const Dashboard: React.FC = () => {
           </Card>
         )}
 
-        {/* Conteúdo Principal */}
+        {/* Conteúdo Principal - Apenas Análises e Insights */}
         <Tabs defaultValue="analytics" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Análises
-            </TabsTrigger>
-            <TabsTrigger value="conversations" className="flex items-center gap-2">
-              <MessageCircle className="w-4 h-4" />
-              Conversas
-            </TabsTrigger>
-            <TabsTrigger value="monitoring" className="flex items-center gap-2">
-              <Settings className="w-4 h-4" />
-              Monitoramento
             </TabsTrigger>
             <TabsTrigger value="insights" className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -182,22 +156,6 @@ const Dashboard: React.FC = () => {
             )}
           </TabsContent>
 
-          {/* Tab de Conversas */}
-          <TabsContent value="conversations" className="space-y-6">
-            <ConversationViewer 
-              conversations={conversations}
-              isLoading={isLoading}
-            />
-          </TabsContent>
-
-          {/* Tab de Monitoramento */}
-          <TabsContent value="monitoring" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TrainerAIMessages />
-              <MCPStatusMonitor />
-            </div>
-          </TabsContent>
-
           {/* Tab de Insights IA */}
           <TabsContent value="insights" className="space-y-6">
             {data && (
@@ -236,6 +194,48 @@ const Dashboard: React.FC = () => {
                             <span className="text-white text-xs font-bold">{index + 1}</span>
                           </div>
                           <span className="text-sm text-emerald-800">{goal}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="lg:col-span-2">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-blue-500" />
+                      Análises Extraídas das Conversas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {data.insights.map((insight) => (
+                        <div 
+                          key={insight.id}
+                          className={`p-4 rounded-lg border ${
+                            insight.type === 'achievement' ? 'bg-green-50 border-green-200' :
+                            insight.type === 'warning' ? 'bg-yellow-50 border-yellow-200' :
+                            insight.type === 'progress' ? 'bg-blue-50 border-blue-200' :
+                            'bg-purple-50 border-purple-200'
+                          }`}
+                        >
+                          <h4 className="font-medium text-sm mb-2">{insight.title}</h4>
+                          <p className="text-xs text-gray-600">{insight.description}</p>
+                          
+                          <div className="flex items-center gap-2 mt-3">
+                            <Badge 
+                              variant="outline" 
+                              className={`text-xs ${
+                                insight.impact === 'high' ? 'border-red-300 text-red-700' :
+                                insight.impact === 'medium' ? 'border-yellow-300 text-yellow-700' :
+                                'border-green-300 text-green-700'
+                              }`}
+                            >
+                              {insight.impact === 'high' ? 'Alto Impacto' :
+                               insight.impact === 'medium' ? 'Médio Impacto' :
+                               'Baixo Impacto'}
+                            </Badge>
+                          </div>
                         </div>
                       ))}
                     </div>

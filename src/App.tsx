@@ -7,7 +7,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom"
 import { AuthProvider } from "@/hooks/useAuth"
 import Index from "./pages/Index"
 import Dashboard from "./pages/Dashboard"
-import ChatTrainer from "./pages/ChatTrainer"
 import Perfil from "./pages/Perfil"
 import PlanoAtual from "./pages/PlanoAtual"
 import Operator from "./pages/Operator"
@@ -21,7 +20,6 @@ const queryClient = new QueryClient()
 
 // Proteger rotas que precisam de autenticação
 const ProtectedDashboard = withAuth(Dashboard)
-const ProtectedChatTrainer = withAuth(ChatTrainer)
 const ProtectedPerfil = withAuth(Perfil)
 const ProtectedPlanoAtual = withAuth(PlanoAtual)
 const ProtectedOperator = withAuth(Operator)
@@ -39,7 +37,6 @@ const App = () => (
             <Route path="/cadastro" element={<SignUp />} />
             <Route path="/esqueci-senha" element={<ResetPassword />} />
             <Route path="/dashboard" element={<ProtectedDashboard />} />
-            <Route path="/chat" element={<ProtectedChatTrainer />} />
             <Route path="/perfil" element={<ProtectedPerfil />} />
             <Route path="/plano" element={<ProtectedPlanoAtual />} />
             <Route path="/operator" element={<ProtectedOperator />} />
