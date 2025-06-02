@@ -1,199 +1,142 @@
 
-import React, { useState, useEffect, useRef } from 'react'
+import React from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Bot, User, Send, Loader2, Brain, Dumbbell, Utensils, Sparkles } from 'lucide-react'
-import { format } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
-import { useAIChat } from '@/hooks/useAIChat'
-import SmartSuggestions from '@/components/dashboard/ai/SmartSuggestions'
+import { Button } from '@/components/ui/button'
+import { Bot, MessageCircle, ExternalLink, Phone, Activity } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { useDataProcessor } from '@/hooks/useDataProcessor'
+import ConversationViewer from '@/components/dashboard/ConversationViewer'
 
 const ChatTrainer: React.FC = () => {
-  const [inputMessage, setInputMessage] = useState('')
-  const [showSuggestions, setShowSuggestions] = useState(true)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  
-  const { messages, isLoading, sendMessage } = useAIChat('chat-trainer')
+  const navigate = useNavigate()
+  const { data, isLoading } = useDataProcessor()
 
-  useEffect(() => {
-    scrollToBottom()
-  }, [messages])
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return
-    
-    const message = inputMessage.trim()
-    setInputMessage('')
-    setShowSuggestions(false)
-    
-    await sendMessage(message)
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+  const conversations = data ? data.insights.map((insight, index) => ({
+    id: `conv-${index}`,
+    userMessage: `Conversa processada #${index + 1}`,
+    aiResponse: insight.description,
+    timestamp: insight.createdAt,
+    category: insight.type === 'progress' ? 'strava_atividades' : 'agenda_treino',
+    extractedData: {
+      workouts: data.workoutPlans.length,
+      meals: data.nutritionPlans.length,
+      events: data.calendarEvents.length
     }
-  }
-
-  const handleSuggestionClick = (suggestion: string) => {
-    setInputMessage(suggestion)
-    setShowSuggestions(false)
-  }
-
-  const quickActions = [
-    { text: 'Gerar plano de treino personalizado', icon: Dumbbell },
-    { text: 'Criar dieta baseada no meu perfil', icon: Utensils },
-    { text: 'Analisar meu progresso com IA', icon: Brain },
-    { text: 'Otimizar meus treinos atuais', icon: Sparkles }
-  ]
+  })) : []
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl h-screen flex flex-col">
-      <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm flex-1 flex flex-col">
+    <div className="container mx-auto p-6 max-w-4xl">
+      <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <div className="relative">
-              <Bot className="w-6 h-6 text-blue-500" />
-              <Sparkles className="w-3 h-3 text-yellow-400 absolute -top-1 -right-1" />
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="w-6 h-6 text-emerald-500" />
+              TrainerAI - Visualizador de Conversas
             </div>
-            TrainerAI - Personal Trainer Virtual Avançado
+            <div className="flex items-center gap-2">
+              <Badge className="bg-emerald-500">Modo Visualização</Badge>
+              <Badge variant="outline" className="text-blue-600">
+                Dados Processados
+              </Badge>
+            </div>
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <Badge className="bg-blue-500">IA Avançada OpenAI</Badge>
-            <Badge variant="outline" className="text-green-600">Dados Personalizados</Badge>
-          </div>
           <p className="text-sm text-gray-600">
-            Assistente fitness com IA real, personalizado com seus dados completos
+            Visualize as conversas processadas pelo agente IA do N8N
           </p>
         </CardHeader>
         
-        <CardContent className="flex-1 flex flex-col">
-          {/* Chat Messages */}
-          <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-            {messages.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <div className="relative w-20 h-20 mx-auto mb-4">
-                  <Bot className="w-full h-full text-blue-400" />
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-white" />
-                  </div>
+        <CardContent className="space-y-6">
+          {/* Estatísticas */}
+          {data && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-emerald-600">
+                  {data.stravaActivities.length}
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Olá! Sou seu TrainerAI Avançado</h3>
-                <p className="mb-2">Agora com IA real da OpenAI e acesso completo aos seus dados!</p>
-                <p className="text-sm mt-2">Posso analisar seus treinos, criar planos personalizados e dar conselhos baseados no seu progresso real.</p>
+                <div className="text-sm text-gray-600">Atividades Coletadas</div>
               </div>
-            )}
-
-            {messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-lg p-4 ${
-                  msg.type === 'user' 
-                    ? 'bg-blue-500 text-white' 
-                    : 'bg-gradient-to-r from-gray-50 to-blue-50 text-gray-900 border border-gray-200'
-                }`}>
-                  <div className="flex items-start gap-3">
-                    {msg.type === 'ai' && (
-                      <div className="relative flex-shrink-0">
-                        <Bot className="w-5 h-5 mt-0.5 text-blue-600" />
-                        <Sparkles className="w-2 h-2 text-yellow-500 absolute -top-0.5 -right-0.5" />
-                      </div>
-                    )}
-                    {msg.type === 'user' && <User className="w-5 h-5 mt-0.5" />}
-                    <div className="flex-1">
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
-                      <p className="text-xs opacity-70 mt-2">
-                        {format(msg.timestamp, 'HH:mm', { locale: ptBR })}
-                      </p>
-                    </div>
-                  </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {data.calendarEvents.length}
                 </div>
+                <div className="text-sm text-gray-600">Eventos na Agenda</div>
               </div>
-            ))}
-
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-4 max-w-[80%] border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    <div className="relative">
-                      <Bot className="w-5 h-5 text-blue-600" />
-                      <Sparkles className="w-2 h-2 text-yellow-500 absolute -top-0.5 -right-0.5" />
-                    </div>
-                    <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-                    <span className="text-gray-600">TrainerAI analisando seus dados...</span>
-                  </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {data.insights.length}
                 </div>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Smart Suggestions */}
-          {showSuggestions && messages.length === 0 && (
-            <div className="mb-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
-              <SmartSuggestions onSuggestionClick={handleSuggestionClick} />
-            </div>
-          )}
-
-          {/* Quick Actions */}
-          {messages.length === 0 && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
-                <Brain className="w-4 h-4" />
-                Ações rápidas com IA:
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {quickActions.map((action, index) => (
-                  <Button
-                    key={index}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleSuggestionClick(action.text)}
-                    className="flex items-center gap-2 text-left justify-start bg-gradient-to-r from-blue-50 to-purple-50 hover:from-blue-100 hover:to-purple-100 border-blue-200"
-                  >
-                    <action.icon className="w-4 h-4 text-blue-600" />
-                    {action.text}
-                  </Button>
-                ))}
+                <div className="text-sm text-gray-600">Insights Gerados</div>
               </div>
             </div>
           )}
 
-          {/* Message Input */}
-          <div className="flex gap-2">
-            <Input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Converse com seu TrainerAI inteligente..."
-              disabled={isLoading}
-              className="flex-1"
-            />
+          {/* Informações sobre o Funcionamento */}
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4">
+              <div className="flex items-start gap-3">
+                <MessageCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-blue-800 mb-2">Como Funciona</h3>
+                  <div className="text-sm text-blue-700 space-y-1">
+                    <p>• Envie mensagens pelo WhatsApp (553183932843)</p>
+                    <p>• O agente IA N8N processa usando ferramentas MCP</p>
+                    <p>• Os dados são enviados para o TrainerAI</p>
+                    <p>• Visualize aqui todas as análises processadas</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Visualizador de Conversas */}
+          <ConversationViewer 
+            conversations={conversations}
+            isLoading={isLoading}
+          />
+
+          {/* Ações Rápidas */}
+          <div className="flex gap-3">
             <Button 
-              onClick={handleSendMessage} 
-              disabled={isLoading || !inputMessage.trim()}
-              size="icon"
-              className="bg-blue-500 hover:bg-blue-600"
+              onClick={() => navigate('/dashboard')}
+              className="flex-1 bg-emerald-500 hover:bg-emerald-600"
             >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
+              <Activity className="w-4 h-4 mr-2" />
+              Ver Dashboard Completo
+            </Button>
+            
+            <Button 
+              onClick={() => navigate('/operator')}
+              variant="outline"
+              className="flex-1"
+            >
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Monitoramento Avançado
             </Button>
           </div>
-          
-          <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" />
-            Powered by OpenAI • Dados personalizados • Enter para enviar
-          </p>
+
+          {/* Contato WhatsApp */}
+          <Card className="bg-green-50 border-green-200">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 text-green-600" />
+                  <div>
+                    <span className="font-medium text-green-800">WhatsApp TrainerAI</span>
+                    <p className="text-sm text-green-700">+55 31 8393-2843</p>
+                  </div>
+                </div>
+                <Button 
+                  size="sm" 
+                  className="bg-green-500 hover:bg-green-600"
+                  onClick={() => window.open('https://wa.me/5531839328843', '_blank')}
+                >
+                  <MessageCircle className="w-4 h-4 mr-2" />
+                  Conversar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </CardContent>
       </Card>
     </div>

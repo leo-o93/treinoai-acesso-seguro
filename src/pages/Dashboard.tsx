@@ -1,204 +1,248 @@
 
 import React from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useQuery } from '@tanstack/react-query'
-import { supabase } from '@/integrations/supabase/client'
+import { useDataProcessor } from '@/hooks/useDataProcessor'
 import Navbar from '@/components/layout/Navbar'
-import StatsCard from '@/components/dashboard/StatsCard'
-import RecentActivities from '@/components/dashboard/RecentActivities'
-import ActivePlans from '@/components/dashboard/ActivePlans'
-import AIChat from '@/components/dashboard/AIChat'
-import PlanGenerationCard from '@/components/dashboard/PlanGenerationCard'
-import PerformanceAnalytics from '@/components/dashboard/PerformanceAnalytics'
-import DetailedTrainingPlan from '@/components/dashboard/DetailedTrainingPlan'
-import DetailedNutritionPlan from '@/components/dashboard/DetailedNutritionPlan'
-import WeeklyFeedbackCard from '@/components/dashboard/WeeklyFeedbackCard'
-import PerformanceInsights from '@/components/dashboard/PerformanceInsights'
-import PlanRecommendations from '@/components/dashboard/PlanRecommendations'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Activity, Target, TrendingUp, Clock } from 'lucide-react'
-import { getStravaActivities } from '@/lib/database'
+import DataVisualization from '@/components/dashboard/DataVisualization'
+import ConversationViewer from '@/components/dashboard/ConversationViewer'
+import TrainerAIMessages from '@/components/dashboard/TrainerAIMessages'
 import MCPStatusMonitor from '@/components/dashboard/MCPStatusMonitor'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { 
+  RefreshCw, 
+  BarChart3, 
+  MessageCircle, 
+  Settings,
+  Brain,
+  Activity,
+  Calendar,
+  TrendingUp
+} from 'lucide-react'
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth()
+  const { data, isLoading, error, refreshData } = useDataProcessor()
 
-  const { data: profile } = useQuery({
-    queryKey: ['user-profile', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-      
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      
-      if (error) throw error
-      return data
-    },
-    enabled: !!user?.id
-  })
-
-  const { data: trainingPlan } = useQuery({
-    queryKey: ['training-plan', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-      
-      const { data, error } = await supabase
-        .from('training_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle()
-      
-      if (error) throw error
-      return data
-    },
-    enabled: !!user?.id
-  })
-
-  const { data: nutritionPlan } = useQuery({
-    queryKey: ['nutrition-plan', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return null
-      
-      const { data, error } = await supabase
-        .from('nutrition_plans')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle()
-      
-      if (error) throw error
-      return data
-    },
-    enabled: !!user?.id
-  })
-
-  const { data: recentActivities } = useQuery({
-    queryKey: ['recent-activities', user?.id],
-    queryFn: () => getStravaActivities(user!.id, 7),
-    enabled: !!user?.id
-  })
-
-  // Calculate stats from recent activities
-  const weeklyStats = React.useMemo(() => {
-    if (!recentActivities) return { activities: 0, distance: 0, time: 0, avgPace: 0 }
-    
-    const totalDistance = recentActivities.reduce((sum, activity) => sum + (activity.distance || 0), 0)
-    const totalTime = recentActivities.reduce((sum, activity) => sum + (activity.moving_time || 0), 0)
-    const avgPace = totalDistance > 0 ? (totalTime / 60) / (totalDistance / 1000) : 0
-    
-    return {
-      activities: recentActivities.length,
-      distance: totalDistance / 1000, // Convert to km
-      time: totalTime / 60, // Convert to minutes
-      avgPace
+  const conversations = data ? data.insights.map((insight, index) => ({
+    id: `conv-${index}`,
+    userMessage: 'Mensagem processada do WhatsApp',
+    aiResponse: insight.description,
+    timestamp: insight.createdAt,
+    category: insight.type === 'progress' ? 'strava_atividades' : 'agenda_treino',
+    extractedData: {
+      workouts: data.workoutPlans.length,
+      meals: data.nutritionPlans.length,
+      events: data.calendarEvents.length
     }
-  }, [recentActivities])
+  })) : []
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+        <Navbar />
+        <div className="container mx-auto p-6">
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6 text-center">
+              <h2 className="text-xl font-semibold text-red-700 mb-2">Erro no Processamento</h2>
+              <p className="text-red-600 mb-4">{error}</p>
+              <Button onClick={refreshData} variant="outline">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Tentar Novamente
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
       <Navbar />
       
       <div className="container mx-auto p-6 space-y-6">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Dashboard TrainerAI
-          </h1>
-          <p className="text-gray-600">
-            Bem-vindo de volta! Aqui está seu resumo de atividades e progresso.
-          </p>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+              TrainerAI - Dashboard Inteligente
+            </h1>
+            <p className="text-gray-600">
+              Análises visuais dos seus dados coletados pelo agente IA
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {data && (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-green-600">
+                  <Activity className="w-3 h-3 mr-1" />
+                  {data.stravaActivities.length} atividades
+                </Badge>
+                <Badge variant="outline" className="text-blue-600">
+                  <Calendar className="w-3 h-3 mr-1" />
+                  {data.calendarEvents.length} eventos
+                </Badge>
+                <Badge variant="outline" className="text-purple-600">
+                  <Brain className="w-3 h-3 mr-1" />
+                  {data.insights.length} insights
+                </Badge>
+              </div>
+            )}
+            
+            <Button 
+              onClick={refreshData} 
+              disabled={isLoading}
+              size="sm"
+              className="bg-emerald-500 hover:bg-emerald-600"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+              Atualizar
+            </Button>
+          </div>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="plans">Planos</TabsTrigger>
-            <TabsTrigger value="analytics">Análises</TabsTrigger>
-            <TabsTrigger value="feedback">Feedback</TabsTrigger>
-            <TabsTrigger value="chat">TrainerAI</TabsTrigger>
-            <TabsTrigger value="mcp">Protocolo MCP</TabsTrigger>
+        {/* Status do Sistema */}
+        {data && (
+          <Card className="bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-full animate-pulse"></div>
+                  <span className="font-medium text-emerald-800">
+                    Sistema TrainerAI Ativo - Processando dados do N8N
+                  </span>
+                </div>
+                <div className="flex items-center gap-4 text-sm text-emerald-700">
+                  <span>Score Aderência: {Math.round(data.metrics.adherenceScore)}%</span>
+                  <span>Consistência: {Math.round(data.metrics.consistencyScore)}%</span>
+                  <span>Melhoria: {data.metrics.improvementRate >= 0 ? '+' : ''}{data.metrics.improvementRate.toFixed(1)}%</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Conteúdo Principal */}
+        <Tabs defaultValue="analytics" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="analytics" className="flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Análises
+            </TabsTrigger>
+            <TabsTrigger value="conversations" className="flex items-center gap-2">
+              <MessageCircle className="w-4 h-4" />
+              Conversas
+            </TabsTrigger>
+            <TabsTrigger value="monitoring" className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Monitoramento
+            </TabsTrigger>
+            <TabsTrigger value="insights" className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Insights IA
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <StatsCard
-                title="Atividades esta semana"
-                value={weeklyStats.activities}
-                subtitle="treinos realizados"
-                icon={Activity}
-                iconColor="text-blue-600"
-              />
-              <StatsCard
-                title="Distância total"
-                value={`${weeklyStats.distance.toFixed(1)}km`}
-                subtitle="últimos 7 dias"
-                icon={Target}
-                iconColor="text-green-600"
-              />
-              <StatsCard
-                title="Tempo de treino"
-                value={`${Math.round(weeklyStats.time)}min`}
-                subtitle="tempo ativo"
-                icon={Clock}
-                iconColor="text-orange-600"
-              />
-              <StatsCard
-                title="Pace médio"
-                value={weeklyStats.avgPace > 0 ? `${weeklyStats.avgPace.toFixed(1)}min/km` : "--"}
-                subtitle="velocidade média"
-                icon={TrendingUp}
-                iconColor="text-purple-600"
-              />
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <RecentActivities />
-              <PlanGenerationCard 
-                userProfile={profile}
-                onPlansGenerated={() => {
-                  // Refresh plans data
-                  window.location.reload()
-                }}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <ActivePlans 
-                trainingPlan={trainingPlan}
-                nutritionPlan={nutritionPlan}
-              />
-              <PerformanceInsights />
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <PlanRecommendations />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="plans" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <DetailedTrainingPlan trainingPlan={trainingPlan} />
-              <DetailedNutritionPlan nutritionPlan={nutritionPlan} />
-            </div>
-          </TabsContent>
-
+          {/* Tab de Análises - Principal */}
           <TabsContent value="analytics" className="space-y-6">
-            <PerformanceAnalytics />
+            {isLoading ? (
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i}>
+                    <CardContent className="p-6">
+                      <div className="animate-pulse">
+                        <div className="h-48 bg-gray-200 rounded-lg"></div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : data ? (
+              <DataVisualization data={data} />
+            ) : (
+              <Card>
+                <CardContent className="p-8 text-center">
+                  <Brain className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                    Aguardando Dados do N8N
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    Envie mensagens pelo WhatsApp para começar a ver suas análises aqui
+                  </p>
+                  <Button onClick={refreshData} variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Verificar Novamente
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
-          <TabsContent value="feedback" className="space-y-6">
-            <WeeklyFeedbackCard userProfile={profile} />
+          {/* Tab de Conversas */}
+          <TabsContent value="conversations" className="space-y-6">
+            <ConversationViewer 
+              conversations={conversations}
+              isLoading={isLoading}
+            />
           </TabsContent>
 
-          <TabsContent value="chat" className="space-y-6">
-            <AIChat />
+          {/* Tab de Monitoramento */}
+          <TabsContent value="monitoring" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TrainerAIMessages />
+              <MCPStatusMonitor />
+            </div>
           </TabsContent>
 
-          <TabsContent value="mcp" className="space-y-6">
-            <MCPStatusMonitor />
+          {/* Tab de Insights IA */}
+          <TabsContent value="insights" className="space-y-6">
+            {data && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="w-5 h-5 text-purple-500" />
+                      Recomendações Personalizadas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {data.insights.filter(insight => insight.type === 'recommendation').map((insight) => (
+                        <div key={insight.id} className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                          <h4 className="font-medium text-purple-800">{insight.title}</h4>
+                          <p className="text-sm text-purple-700 mt-1">{insight.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="w-5 h-5 text-emerald-500" />
+                      Próximos Objetivos
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {data.metrics.nextGoals.map((goal, index) => (
+                        <div key={index} className="flex items-center gap-3 p-3 bg-emerald-50 rounded-lg">
+                          <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <span className="text-white text-xs font-bold">{index + 1}</span>
+                          </div>
+                          <span className="text-sm text-emerald-800">{goal}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
