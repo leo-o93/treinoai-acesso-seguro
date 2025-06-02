@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Webhook, Settings, CheckCircle, AlertCircle, Copy, Eye, Clock, Activity, Zap, MessageCircle, Calendar, Brain } from 'lucide-react'
+import { Webhook, Settings, CheckCircle, AlertCircle, Copy, Eye, Clock, Activity, Zap, MessageCircle, Calendar, Brain, Bug, Database } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/integrations/supabase/client'
@@ -44,7 +43,7 @@ const N8nWebhookMonitor: React.FC = () => {
       if (error) throw error
       return data as N8nWebhookLog[]
     },
-    refetchInterval: 10000 // Atualizar a cada 10 segundos
+    refetchInterval: 5000 // Atualizar a cada 5 segundos para debug
   })
 
   // Estatísticas das mensagens por ferramenta
@@ -56,7 +55,10 @@ const N8nWebhookMonitor: React.FC = () => {
       total: n8nLogs.length,
       hoje: 0,
       sucesso: 0,
-      erro: 0
+      erro: 0,
+      errosAuth: 0,
+      errosParsing: 0,
+      errosValidacao: 0
     }
 
     const hoje = new Date()
@@ -71,6 +73,15 @@ const N8nWebhookMonitor: React.FC = () => {
       // Contar sucessos e erros
       if (log.error_message) {
         stats.erro++
+        
+        // Categorizar tipos de erro
+        if (log.event_type === 'authentication_error') {
+          stats.errosAuth++
+        } else if (log.event_type === 'parse_error') {
+          stats.errosParsing++
+        } else if (log.event_type === 'validation_error') {
+          stats.errosValidacao++
+        }
       } else if (log.processed) {
         stats.sucesso++
       }
@@ -82,7 +93,7 @@ const N8nWebhookMonitor: React.FC = () => {
         stats.agendamento++
       } else if (message.includes('strava') || message.includes('corrida') || message.includes('pace')) {
         stats.strava++
-      } else {
+      } else if (message) {
         stats.conhecimento++
       }
     })
@@ -132,6 +143,16 @@ const N8nWebhookMonitor: React.FC = () => {
     return <Clock className="w-3 h-3" />
   }
 
+  const getEventTypeIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'authentication_error': return <AlertCircle className="w-4 h-4 text-red-500" />
+      case 'parse_error': return <Bug className="w-4 h-4 text-yellow-500" />
+      case 'validation_error': return <Database className="w-4 h-4 text-orange-500" />
+      case 'message_received': return <MessageCircle className="w-4 h-4 text-green-500" />
+      default: return <Activity className="w-4 h-4 text-gray-500" />
+    }
+  }
+
   return (
     <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
       <CardHeader>
@@ -140,17 +161,18 @@ const N8nWebhookMonitor: React.FC = () => {
           Monitor n8n TrainerAI
           <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
             <Eye className="w-3 h-3 mr-1" />
-            {toolStats.total} mensagens
+            {toolStats.total} logs
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid grid-cols-4 w-full">
+          <TabsList className="grid grid-cols-5 w-full">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="debug">Debug</TabsTrigger>
             <TabsTrigger value="config">Configuração</TabsTrigger>
             <TabsTrigger value="messages">Mensagens</TabsTrigger>
-            <TabsTrigger value="tools">Ferramentas</TabsTrigger>
+            <TabsTrigger value="errors">Erros</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -162,13 +184,13 @@ const N8nWebhookMonitor: React.FC = () => {
                   <span className="text-sm font-medium text-blue-900">Total</span>
                 </div>
                 <div className="text-lg font-bold text-blue-800">{toolStats.total}</div>
-                <div className="text-xs text-blue-600">mensagens recebidas</div>
+                <div className="text-xs text-blue-600">logs recebidos</div>
               </div>
               
               <div className="p-3 border rounded-lg bg-green-50">
                 <div className="flex items-center gap-2 mb-1">
                   <CheckCircle className="w-4 h-4 text-green-500" />
-                  <span className="text-sm font-medium text-green-900">Processadas</span>
+                  <span className="text-sm font-medium text-green-900">Processados</span>
                 </div>
                 <div className="text-lg font-bold text-green-800">{toolStats.sucesso}</div>
                 <div className="text-xs text-green-600">com sucesso</div>
@@ -200,18 +222,80 @@ const N8nWebhookMonitor: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${toolStats.total > 0 ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
                   <span className="text-xs text-blue-700">
-                    {toolStats.total > 0 ? 'Conectado' : 'Aguardando dados'}
+                    {toolStats.total > 0 ? 'Recebendo dados' : 'Aguardando dados'}
                   </span>
                 </div>
               </div>
               <div className="text-sm text-blue-800">
                 <p><strong>Webhook n8n:</strong> {n8nWebhookUrl}</p>
-                <p><strong>Último recebimento:</strong> {
+                <p><strong>Último log:</strong> {
                   n8nLogs.length > 0 
-                    ? format(new Date(n8nLogs[0].created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                    ? format(new Date(n8nLogs[0].created_at), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })
                     : 'Nenhum dado recebido ainda'
                 }</p>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="debug" className="space-y-4">
+            {/* Breakdown de erros */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-3 border rounded-lg bg-red-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  <span className="text-sm font-medium text-red-900">Erros de Auth</span>
+                </div>
+                <div className="text-lg font-bold text-red-800">{toolStats.errosAuth}</div>
+                <div className="text-xs text-red-600">webhook key inválida</div>
+              </div>
+              
+              <div className="p-3 border rounded-lg bg-yellow-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Bug className="w-4 h-4 text-yellow-500" />
+                  <span className="text-sm font-medium text-yellow-900">Erros de Parse</span>
+                </div>
+                <div className="text-lg font-bold text-yellow-800">{toolStats.errosParsing}</div>
+                <div className="text-xs text-yellow-600">JSON inválido</div>
+              </div>
+              
+              <div className="p-3 border rounded-lg bg-orange-50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Database className="w-4 h-4 text-orange-500" />
+                  <span className="text-sm font-medium text-orange-900">Erros de Validação</span>
+                </div>
+                <div className="text-lg font-bold text-orange-800">{toolStats.errosValidacao}</div>
+                <div className="text-xs text-orange-600">campos obrigatórios</div>
+              </div>
+            </div>
+
+            {/* Logs de debug mais recentes */}
+            <div className="p-4 border rounded-lg bg-gray-50">
+              <h4 className="font-medium text-gray-900 mb-3">🔍 Logs de Debug Recentes</h4>
+              {n8nLogs.slice(0, 5).map((log) => (
+                <div key={log.id} className="mb-3 p-3 border rounded bg-white text-xs">
+                  <div className="flex items-center gap-2 mb-1">
+                    {getEventTypeIcon(log.event_type)}
+                    <span className="font-medium">{log.event_type}</span>
+                    <span className="text-gray-500">
+                      {format(new Date(log.created_at), 'HH:mm:ss', { locale: ptBR })}
+                    </span>
+                  </div>
+                  
+                  {log.payload?.debug_info && (
+                    <div className="bg-gray-50 p-2 rounded mt-2">
+                      <p><strong>Headers:</strong> {JSON.stringify(log.payload.debug_info.headers, null, 2)}</p>
+                      <p><strong>Body Type:</strong> {log.payload.debug_info.body_type}</p>
+                      <p><strong>Fields Found:</strong> {log.payload.debug_info.fields_found?.join(', ')}</p>
+                    </div>
+                  )}
+                  
+                  {log.error_message && (
+                    <div className="text-red-600 bg-red-50 p-2 rounded mt-2">
+                      <strong>Erro:</strong> {log.error_message}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </TabsContent>
 
@@ -275,15 +359,15 @@ const N8nWebhookMonitor: React.FC = () => {
                   <div key={i} className="h-20 bg-gray-200 rounded-lg"></div>
                 ))}
               </div>
-            ) : n8nLogs.length === 0 ? (
+            ) : n8nLogs.filter(log => log.event_type === 'message_received').length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <MessageCircle className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>Nenhuma mensagem do n8n recebida ainda</p>
-                <p className="text-sm">As mensagens processadas pelo agente IA aparecerão aqui</p>
+                <p>Nenhuma mensagem processada ainda</p>
+                <p className="text-sm">As mensagens do WhatsApp aparecerão aqui quando o n8n enviar os dados</p>
               </div>
             ) : (
               <div className="space-y-3 max-h-96 overflow-y-auto">
-                {n8nLogs.map((log) => (
+                {n8nLogs.filter(log => log.event_type === 'message_received').map((log) => (
                   <div key={log.id} className="p-4 border rounded-lg bg-white">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -302,7 +386,7 @@ const N8nWebhookMonitor: React.FC = () => {
                         </div>
                       </div>
                       <span className="text-xs text-gray-500">
-                        {format(new Date(log.created_at), 'dd/MM HH:mm', { locale: ptBR })}
+                        {format(new Date(log.created_at), 'dd/MM HH:mm:ss', { locale: ptBR })}
                       </span>
                     </div>
                     
@@ -328,61 +412,44 @@ const N8nWebhookMonitor: React.FC = () => {
             )}
           </TabsContent>
 
-          <TabsContent value="tools" className="space-y-4">
-            <div className="grid gap-4">
-              <div className="p-4 border rounded-lg bg-blue-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-5 h-5 text-blue-500" />
-                    <h5 className="font-medium text-blue-900">AGENDAMENTO-Treino-Dietas</h5>
+          <TabsContent value="errors" className="space-y-4">
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {n8nLogs.filter(log => log.error_message).length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <CheckCircle className="w-12 h-12 mx-auto mb-4 text-green-300" />
+                  <p>Nenhum erro registrado</p>
+                  <p className="text-sm">Todos os webhooks foram processados com sucesso</p>
+                </div>
+              ) : (
+                n8nLogs.filter(log => log.error_message).map((log) => (
+                  <div key={log.id} className="p-4 border rounded-lg bg-red-50">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {getEventTypeIcon(log.event_type)}
+                        <span className="font-medium text-red-900">{log.event_type}</span>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {format(new Date(log.created_at), 'dd/MM HH:mm:ss', { locale: ptBR })}
+                      </span>
+                    </div>
+                    
+                    <div className="text-sm text-red-800 mb-2">
+                      <strong>Erro:</strong> {log.error_message}
+                    </div>
+                    
+                    {log.payload && (
+                      <details className="text-xs">
+                        <summary className="cursor-pointer text-red-700 font-medium">
+                          Ver detalhes do payload
+                        </summary>
+                        <pre className="mt-2 p-2 bg-white rounded border overflow-auto">
+                          {JSON.stringify(log.payload, null, 2)}
+                        </pre>
+                      </details>
+                    )}
                   </div>
-                  <Badge variant="outline" className="bg-blue-100 text-blue-700">
-                    {toolStats.agendamento} usos
-                  </Badge>
-                </div>
-                <p className="text-sm text-blue-700 mb-2">
-                  Gerenciamento de treinos e dietas no Google Calendar
-                </p>
-                <div className="text-xs text-blue-600">
-                  Palavras-chave: agenda, treino, dieta, agendar, marcar
-                </div>
-              </div>
-
-              <div className="p-4 border rounded-lg bg-orange-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-orange-500" />
-                    <h5 className="font-medium text-orange-900">INFORMAÇÕES-Strava</h5>
-                  </div>
-                  <Badge variant="outline" className="bg-orange-100 text-orange-700">
-                    {toolStats.strava} usos
-                  </Badge>
-                </div>
-                <p className="text-sm text-orange-700 mb-2">
-                  Consulta de dados e estatísticas de treinos do Strava
-                </p>
-                <div className="text-xs text-orange-600">
-                  Palavras-chave: strava, corrida, pace, estatísticas, atividades
-                </div>
-              </div>
-
-              <div className="p-4 border rounded-lg bg-purple-50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Brain className="w-5 h-5 text-purple-500" />
-                    <h5 className="font-medium text-purple-900">CONHECIMENTO-IA</h5>
-                  </div>
-                  <Badge variant="outline" className="bg-purple-100 text-purple-700">
-                    {toolStats.conhecimento} usos
-                  </Badge>
-                </div>
-                <p className="text-sm text-purple-700 mb-2">
-                  Base de conhecimento para respostas especializadas em fitness
-                </p>
-                <div className="text-xs text-purple-600">
-                  Dúvidas gerais, orientações, dicas de treino e nutrição
-                </div>
-              </div>
+                ))
+              )}
             </div>
           </TabsContent>
         </Tabs>
