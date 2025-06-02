@@ -36,20 +36,20 @@ const PlanRecommendations: React.FC = () => {
     queryFn: async (): Promise<WeeklyFeedback[]> => {
       if (!user?.id) return []
       
-      const { data, error } = await supabase
-        .rpc('select_weekly_feedback', { user_id_param: user.id })
-        .catch(async () => {
-          // Fallback to direct query if RPC doesn't exist
-          return await supabase
-            .from('weekly_feedback' as any)
-            .select('*')
-            .eq('user_id', user.id)
-            .order('week_start', { ascending: false })
-            .limit(4)
-        })
-      
-      if (error) throw error
-      return (data as any[]) as WeeklyFeedback[]
+      try {
+        const { data, error } = await (supabase as any)
+          .from('weekly_feedback')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('week_start', { ascending: false })
+          .limit(4)
+        
+        if (error) throw error
+        return (data as any[]) as WeeklyFeedback[]
+      } catch (error) {
+        console.error('Error fetching weekly feedbacks:', error)
+        return []
+      }
     },
     enabled: !!user?.id
   })
