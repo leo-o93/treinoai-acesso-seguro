@@ -6,33 +6,62 @@ import { useQuery } from '@tanstack/react-query'
 import { getStravaActivities } from '@/lib/database'
 import { mcpStrava } from '@/lib/mcpClient'
 import { useAuth } from '@/hooks/useAuth'
-import { Activity, Clock, MapPin, Heart, Zap } from 'lucide-react'
+import { Activity, Clock, MapPin, Heart, Zap, RefreshCw } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 const RecentActivities: React.FC = () => {
   const { user } = useAuth()
 
-  // Primeiro tentar buscar do banco local
-  const { data: localActivities } = useQuery({
+  // Buscar atividades do banco local com mais debug
+  const { data: localActivities, isLoading: localLoading, refetch: refetchLocal } = useQuery({
     queryKey: ['strava-activities-local', user?.id],
-    queryFn: () => getStravaActivities(user!.id, 5),
+    queryFn: async () => {
+      console.log('🔍 Buscando atividades locais para user:', user?.id)
+      const activities = await getStravaActivities(user!.id, 10)
+      console.log('📊 Atividades locais encontradas:', activities?.length || 0, activities)
+      return activities
+    },
     enabled: !!user?.id
   })
 
-  // Também tentar buscar via MCP (dados mais recentes)
-  const { data: mcpActivities, isLoading } = useQuery({
+  // Buscar via MCP (dados mais recentes) com mais debug
+  const { data: mcpActivities, isLoading: mcpLoading, refetch: refetchMcp } = useQuery({
     queryKey: ['strava-activities-mcp'],
     queryFn: async () => {
-      const result = await mcpStrava.getAllTrain(5)
-      return result.success ? result.data : []
+      console.log('🌐 Buscando atividades via MCP...')
+      try {
+        const result = await mcpStrava.getAllTrain(10)
+        console.log('📡 Resultado MCP:', result)
+        return result.success ? result.data : []
+      } catch (error) {
+        console.error('❌ Erro no MCP:', error)
+        return []
+      }
     },
     refetchInterval: 5 * 60 * 1000, // Atualizar a cada 5 minutos
     retry: 1
   })
 
-  // Usar dados do MCP se disponíveis, senão usar dados locais
-  const activities = mcpActivities && mcpActivities.length > 0 ? mcpActivities : localActivities || []
+  // Debug das fontes de dados
+  React.useEffect(() => {
+    console.log('🔄 Estado das atividades:')
+    console.log('- Local activities:', localActivities?.length || 0, localActivities)
+    console.log('- MCP activities:', mcpActivities?.length || 0, mcpActivities)
+    console.log('- Local loading:', localLoading)
+    console.log('- MCP loading:', mcpLoading)
+  }, [localActivities, mcpActivities, localLoading, mcpLoading])
+
+  // Usar dados locais como prioridade, depois MCP
+  const activities = (localActivities && localActivities.length > 0) ? localActivities : (mcpActivities || [])
+  const isLoading = localLoading && mcpLoading
+
+  const handleRefresh = () => {
+    console.log('🔄 Atualizando atividades...')
+    refetchLocal()
+    refetchMcp()
+  }
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
@@ -89,7 +118,7 @@ const RecentActivities: React.FC = () => {
     }
   }
 
-  if (isLoading && (!activities || activities.length === 0)) {
+  if (isLoading) {
     return (
       <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
         <CardHeader>
@@ -118,16 +147,36 @@ const RecentActivities: React.FC = () => {
   return (
     <Card className="shadow-lg border-0 bg-white/80 backdrop-blur-sm">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Activity className="w-5 h-5 text-red-500" />
-          Atividades Recentes
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="w-5 h-5 text-red-500" />
+            Atividades Recentes
+          </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Atualizar
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
+        {/* Debug info para desenvolvimento */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-2 bg-gray-100 rounded text-xs">
+            <div>Local: {localActivities?.length || 0} atividades</div>
+            <div>MCP: {mcpActivities?.length || 0} atividades</div>
+            <div>Fonte atual: {(localActivities && localActivities.length > 0) ? 'Local' : 'MCP'}</div>
+          </div>
+        )}
+
         {activities && activities.length > 0 ? (
           <div className="space-y-4">
             {activities.map((activity, index) => (
-              <div key={activity.id || index} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+              <div key={activity.id || activity.strava_activity_id || index} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 transition-colors">
                 <div className="text-2xl">
                   {getActivityIcon(activity.type)}
                 </div>
@@ -184,8 +233,16 @@ const RecentActivities: React.FC = () => {
             <Activity className="w-12 h-12 mx-auto mb-4 text-gray-300" />
             <p className="font-medium mb-2">Nenhuma atividade encontrada</p>
             <p className="text-sm">
-              Conecte sua conta do Strava no perfil para ver suas atividades aqui.
+              Envie uma mensagem sobre treinos no WhatsApp ou conecte sua conta do Strava no perfil.
             </p>
+            <Button 
+              onClick={handleRefresh}
+              variant="outline"
+              className="mt-3"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tentar novamente
+            </Button>
           </div>
         )}
       </CardContent>

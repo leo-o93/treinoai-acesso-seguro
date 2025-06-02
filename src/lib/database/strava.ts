@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client'
 import { StravaActivity, StravaToken } from './types'
 
 export const getStravaActivities = async (userId: string, limit = 10) => {
+  console.log('🔍 Buscando atividades Strava para user:', userId, 'limit:', limit)
+  
   const { data, error } = await supabase
     .from('strava_activities')
     .select('*')
@@ -10,7 +12,12 @@ export const getStravaActivities = async (userId: string, limit = 10) => {
     .order('start_date', { ascending: false })
     .limit(limit)
 
-  if (error) throw error
+  if (error) {
+    console.error('❌ Erro ao buscar atividades:', error)
+    throw error
+  }
+  
+  console.log('✅ Atividades encontradas:', data?.length || 0)
   return data
 }
 
@@ -59,4 +66,22 @@ export const upsertStravaToken = async (token: Omit<StravaToken, 'id' | 'created
 
   if (error) throw error
   return data
+}
+
+// Nova função para sincronizar atividades Strava
+export const syncStravaActivities = async (userId: string) => {
+  console.log('🔄 Iniciando sincronização Strava para user:', userId)
+  
+  try {
+    // Aqui você pode implementar a lógica para buscar atividades diretamente do Strava
+    // Por exemplo, usando a API do Strava ou chamando uma edge function
+    
+    // Por enquanto, apenas log
+    console.log('📡 Sincronização Strava não implementada ainda')
+    
+    return { success: true, message: 'Sincronização iniciada' }
+  } catch (error) {
+    console.error('❌ Erro na sincronização Strava:', error)
+    throw error
+  }
 }

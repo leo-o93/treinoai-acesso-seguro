@@ -140,8 +140,9 @@ serve(async (req) => {
         console.log('Usando fallback user_id devido ao erro:', userId)
       }
 
-      // Inicializar variável para eventos extraídos
+      // Inicializar variáveis para dados extraídos
       let extractedEvents = []
+      let extractedActivities = []
 
       // Salvar mensagem do usuário
       const { data: conversationData, error: conversationError } = await supabaseClient
@@ -180,6 +181,14 @@ serve(async (req) => {
             console.log('Eventos extraídos:', extractedEvents.length)
           } catch (eventError) {
             console.error('Erro ao extrair eventos:', eventError)
+          }
+
+          // NOVO: Tentar extrair atividades do Strava da resposta da IA
+          try {
+            extractedActivities = await extractStravaActivities(aiResponse, userId, supabaseClient)
+            console.log('Atividades Strava extraídas:', extractedActivities.length)
+          } catch (activityError) {
+            console.error('Erro ao extrair atividades Strava:', activityError)
           }
         }
 
@@ -225,6 +234,7 @@ serve(async (req) => {
             category: messageCategory,
             userId,
             extractedEventsCount: extractedEvents?.length || 0,
+            extractedActivitiesCount: extractedActivities?.length || 0,
             processed_at: new Date().toISOString()
           },
           processed: true,
@@ -239,6 +249,7 @@ serve(async (req) => {
         category: messageCategory,
         user_id: userId,
         extracted_events: extractedEvents?.length || 0,
+        extracted_activities: extractedActivities?.length || 0,
         timestamp: new Date().toISOString()
       }
 
@@ -349,6 +360,121 @@ serve(async (req) => {
     )
   }
 })
+
+// NOVA FUNÇÃO: Extrair atividades do Strava da resposta da IA
+async function extractStravaActivities(aiResponse: string, userId: string, supabaseClient: any) {
+  const activities = []
+  
+  console.log('=== INICIANDO EXTRAÇÃO DE ATIVIDADES STRAVA ===')
+  console.log('AI Response length:', aiResponse.length)
+  
+  // Regex patterns para extrair atividades do Strava das respostas da IA
+  const activityPattern = /\d+\.\s\*\*(.*?)\*\*\s*\n\s*-\s\*\*Data:\*\*\s(.*?)\n\s*-\s\*\*Distância:\*\*\s(.*?)\s*km\s*\n\s*-\s\*\*Tempo em Movimento:\*\*\s(.*?)\n\s*-\s\*\*Ganho de Elevação:\*\*\s(.*?)\s*m/g
+  
+  let match
+  let matchCount = 0
+  while ((match = activityPattern.exec(aiResponse)) !== null) {
+    matchCount++
+    const [, name, dateStr, distanceStr, timeStr, elevationStr] = match
+    
+    console.log(`Atividade ${matchCount} encontrada:`, { name, dateStr, distanceStr, timeStr, elevationStr })
+    
+    try {
+      // Parse da data
+      const startDate = parsePortugueseDate(dateStr.trim())
+      
+      // Parse da distância (remover vírgulas e converter para metros)
+      const distance = parseFloat(distanceStr.replace(',', '.')) * 1000
+      
+      // Parse do tempo (converter para segundos)
+      const movingTime = parsePortugueseTime(timeStr.trim())
+      
+      // Parse da elevação
+      const totalElevationGain = parseFloat(elevationStr.replace(',', '.'))
+      
+      // Gerar ID único para a atividade baseado nos dados
+      const stravaActivityId = `extracted_${Date.now()}_${matchCount}`
+      
+      const activityData = {
+        user_id: userId,
+        strava_activity_id: stravaActivityId,
+        name: name.trim(),
+        type: 'Run', // Assumir corrida por padrão
+        distance: distance,
+        moving_time: movingTime,
+        elapsed_time: movingTime,
+        total_elevation_gain: totalElevationGain,
+        start_date: startDate.toISOString(),
+        achievement_count: 0,
+        kudos_count: 0
+      }
+      
+      console.log('Dados da atividade para salvar:', activityData)
+      
+      const { data: savedActivity, error } = await supabaseClient
+        .from('strava_activities')
+        .upsert(activityData, { onConflict: 'strava_activity_id' })
+        .select()
+        .single()
+      
+      if (error) {
+        console.error('Erro ao salvar atividade:', error)
+      } else {
+        console.log('Atividade salva com sucesso:', savedActivity)
+        activities.push(savedActivity)
+      }
+    } catch (error) {
+      console.error('Erro ao processar atividade:', error)
+    }
+  }
+  
+  console.log(`=== EXTRAÇÃO DE ATIVIDADES COMPLETA: ${activities.length} atividades salvas ===`)
+  return activities
+}
+
+// Função auxiliar para converter data em português para Date
+function parsePortugueseDate(dateStr: string): Date {
+  // Ex: "31 de Maio de 2025"
+  const months = {
+    'janeiro': 0, 'fevereiro': 1, 'março': 2, 'abril': 3,
+    'maio': 4, 'junho': 5, 'julho': 6, 'agosto': 7,
+    'setembro': 8, 'outubro': 9, 'novembro': 10, 'dezembro': 11
+  }
+  
+  const match = dateStr.match(/(\d+)\s+de\s+(\w+)\s+de\s+(\d+)/)
+  if (match) {
+    const day = parseInt(match[1])
+    const month = months[match[2].toLowerCase()]
+    const year = parseInt(match[3])
+    return new Date(year, month, day)
+  }
+  
+  // Fallback para hoje
+  return new Date()
+}
+
+// Função auxiliar para converter tempo em português para segundos
+function parsePortugueseTime(timeStr: string): number {
+  // Ex: "1h 14m 39s" ou "54m 44s"
+  let totalSeconds = 0
+  
+  const hourMatch = timeStr.match(/(\d+)h/)
+  if (hourMatch) {
+    totalSeconds += parseInt(hourMatch[1]) * 3600
+  }
+  
+  const minMatch = timeStr.match(/(\d+)m/)
+  if (minMatch) {
+    totalSeconds += parseInt(minMatch[1]) * 60
+  }
+  
+  const secMatch = timeStr.match(/(\d+)s/)
+  if (secMatch) {
+    totalSeconds += parseInt(secMatch[1])
+  }
+  
+  return totalSeconds
+}
 
 // Função para extrair eventos estruturados da resposta da IA
 async function extractStructuredEvents(aiResponse: string, userId: string, supabaseClient: any) {
