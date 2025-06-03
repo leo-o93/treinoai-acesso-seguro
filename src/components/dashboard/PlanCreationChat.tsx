@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Dumbbell, Apple, Send, User, Bot, Upload } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/integrations/supabase/client'
@@ -15,6 +14,7 @@ interface Message {
   content: string
   type: 'user' | 'ai'
   timestamp: Date
+  [key: string]: any // Index signature para compatibilidade com Json
 }
 
 interface PlanCreationChatProps {
@@ -115,13 +115,21 @@ export const PlanCreationChat: React.FC<PlanCreationChatProps> = ({
         created_by_ai: true
       }
 
+      // Converter messages para formato compatível com Json
+      const messagesForJson = messages.filter(m => m.type === 'ai').map(m => ({
+        id: m.id,
+        content: m.content,
+        type: m.type,
+        timestamp: m.timestamp.toISOString()
+      }))
+
       if (planType === 'training') {
         const { data, error } = await supabase
           .from('training_plans')
           .insert({
             ...planData,
             plan_data: {
-              messages: messages.filter(m => m.type === 'ai'),
+              messages: messagesForJson,
               created_via: 'ai_chat'
             },
             difficulty_level: 'intermediario',
@@ -138,7 +146,7 @@ export const PlanCreationChat: React.FC<PlanCreationChatProps> = ({
           .insert({
             ...planData,
             meal_plan: {
-              messages: messages.filter(m => m.type === 'ai'),
+              messages: messagesForJson,
               created_via: 'ai_chat'
             },
             daily_calories: 2000

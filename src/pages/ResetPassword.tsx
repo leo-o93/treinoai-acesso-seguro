@@ -1,17 +1,17 @@
 
 import React from 'react'
-import { AuthLayout } from '@/components/auth/AuthLayout'
-import { ResetPassword as ResetPasswordComponent } from '@/components/auth/ResetPassword'
+import AuthLayout from '@/components/auth/AuthLayout'
+import ResetPassword from '@/components/auth/ResetPassword'
 
-const ResetPassword = () => {
+const ResetPasswordPage = () => {
   return (
     <AuthLayout
       title="Redefinir senha"
       subtitle="Digite seu email para receber as instruções"
     >
-      <ResetPasswordComponent />
+      <ResetPassword />
     </AuthLayout>
   )
 }
 
-export default ResetPassword
+export default ResetPasswordPage

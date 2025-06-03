@@ -1,7 +1,7 @@
 
 import React from 'react'
-import { AuthLayout } from '@/components/auth/AuthLayout'
-import { SignUp } from '@/components/auth/SignUp'
+import AuthLayout from '@/components/auth/AuthLayout'
+import SignUp from '@/components/auth/SignUp'
 
 const Register = () => {
   return (

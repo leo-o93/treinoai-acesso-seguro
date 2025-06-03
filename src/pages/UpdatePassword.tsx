@@ -2,17 +2,18 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import { AuthLayout } from '@/components/auth/AuthLayout'
+import AuthLayout from '@/components/auth/AuthLayout'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
+import { supabase } from '@/integrations/supabase/client'
 
 const UpdatePassword = () => {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const { updatePassword } = useAuth()
+  const { user } = useAuth()
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,7 +32,12 @@ const UpdatePassword = () => {
     setLoading(true)
 
     try {
-      await updatePassword(password)
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      })
+      
+      if (error) throw error
+      
       toast.success('Senha atualizada com sucesso!')
       navigate('/dashboard')
     } catch (error) {

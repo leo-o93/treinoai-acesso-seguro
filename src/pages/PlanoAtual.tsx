@@ -12,6 +12,28 @@ import { useNavigate } from 'react-router-dom'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
+interface TrainingPlan {
+  id: string
+  title: string
+  description: string
+  status: string
+  created_at: string
+  created_by_ai: boolean
+  difficulty_level?: string
+  plan_data: any
+}
+
+interface NutritionPlan {
+  id: string
+  title: string
+  description: string
+  status: string
+  created_at: string
+  created_by_ai: boolean
+  daily_calories?: number
+  meal_plan: any
+}
+
 const PlanoAtual = () => {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -66,7 +88,11 @@ const PlanoAtual = () => {
   const isTrainingPlan = planType === 'training'
   const Icon = isTrainingPlan ? Dumbbell : Apple
   const color = isTrainingPlan ? 'emerald' : 'orange'
-  const planData = isTrainingPlan ? plan.plan_data : plan.meal_plan
+  
+  // Type-safe access to plan data
+  const planData = isTrainingPlan 
+    ? (plan as TrainingPlan).plan_data 
+    : (plan as NutritionPlan).meal_plan
 
   const renderPlanContent = () => {
     if (planData?.created_via === 'ai_chat' && planData?.messages) {
@@ -148,16 +174,16 @@ const PlanoAtual = () => {
                   <Calendar className="w-4 h-4" />
                   Criado em {format(new Date(plan.created_at), 'dd/MM/yyyy', { locale: ptBR })}
                 </div>
-                {isTrainingPlan && plan.difficulty_level && (
+                {isTrainingPlan && (plan as TrainingPlan).difficulty_level && (
                   <div className="flex items-center gap-1">
                     <User className="w-4 h-4" />
-                    Nível: {plan.difficulty_level}
+                    Nível: {(plan as TrainingPlan).difficulty_level}
                   </div>
                 )}
-                {!isTrainingPlan && plan.daily_calories && (
+                {!isTrainingPlan && (plan as NutritionPlan).daily_calories && (
                   <div className="flex items-center gap-1">
                     <Apple className="w-4 h-4" />
-                    {plan.daily_calories} calorias/dia
+                    {(plan as NutritionPlan).daily_calories} calorias/dia
                   </div>
                 )}
               </div>
