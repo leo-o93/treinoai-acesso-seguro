@@ -54,6 +54,12 @@ export const useCalorieCounter = (): UseCalorieCounterReturn => {
       return null
     }
 
+    // Verificar tamanho do arquivo (máximo 10MB)
+    if (imageFile.size > 10 * 1024 * 1024) {
+      toast.error('A imagem é muito grande. Máximo permitido: 10MB')
+      return null
+    }
+
     setIsAnalyzing(true)
 
     try {
@@ -95,10 +101,14 @@ export const useCalorieCounter = (): UseCalorieCounterReturn => {
   const captureFromCamera = async (): Promise<File | null> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } // Câmera traseira preferencial
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
       })
 
-      return new Promise((resolve) => {
+      return new Promise((resolve, reject) => {
         const video = document.createElement('video')
         const canvas = document.createElement('canvas')
         const context = canvas.getContext('2d')
@@ -110,26 +120,39 @@ export const useCalorieCounter = (): UseCalorieCounterReturn => {
           canvas.width = video.videoWidth
           canvas.height = video.videoHeight
 
-          // Simular captura (na prática, você implementaria um modal com preview)
+          // Capturar após vídeo carregar
           setTimeout(() => {
             if (context) {
               context.drawImage(video, 0, 0)
               canvas.toBlob((blob) => {
                 stream.getTracks().forEach(track => track.stop())
                 if (blob) {
-                  const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' })
+                  const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' })
                   resolve(file)
                 } else {
-                  resolve(null)
+                  reject(new Error('Falha ao capturar imagem'))
                 }
               }, 'image/jpeg', 0.8)
+            } else {
+              reject(new Error('Falha ao acessar canvas'))
             }
-          }, 100)
+          }, 500)
+        })
+
+        video.addEventListener('error', () => {
+          stream.getTracks().forEach(track => track.stop())
+          reject(new Error('Erro ao carregar vídeo'))
         })
       })
     } catch (error) {
       console.error('Erro ao acessar câmera:', error)
-      toast.error('Erro ao acessar a câmera')
+      if (error instanceof Error && error.name === 'NotAllowedError') {
+        toast.error('Permissão para câmera negada. Habilite nas configurações do navegador.')
+      } else if (error instanceof Error && error.name === 'NotFoundError') {
+        toast.error('Câmera não encontrada no dispositivo.')
+      } else {
+        toast.error('Erro ao acessar a câmera')
+      }
       return null
     }
   }

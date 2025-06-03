@@ -3,7 +3,7 @@ import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
-import { Menu, X, User, LogOut, Settings, Calendar, BarChart3, Target } from "lucide-react"
+import { Menu, X, User, LogOut, Settings, Calendar, BarChart3, Target, Camera } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +22,7 @@ export const Navbar = () => {
   const navLinks = user ? [
     { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
     { to: "/plano", label: "Plano Atual", icon: Target },
+    { to: "/contador-calorias", label: "Contador Calorias", icon: Camera },
     { to: "/integracoes", label: "Integrações", icon: Settings },
   ] : []
 

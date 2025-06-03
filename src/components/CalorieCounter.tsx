@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Camera, Upload, Loader2, Utensils, TrendingUp, AlertCircle } from 'lucide-react'
 import { useCalorieCounter } from '@/hooks/useCalorieCounter'
+import { CameraModal } from '@/components/CameraModal'
 
 interface FoodItem {
   name: string
@@ -32,16 +33,25 @@ const CalorieCounter: React.FC = () => {
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [analysis, setAnalysis] = useState<NutritionAnalysis | null>(null)
+  const [showCameraModal, setShowCameraModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      setSelectedImage(file)
-      const previewUrl = URL.createObjectURL(file)
-      setImagePreview(previewUrl)
-      setAnalysis(null)
+      processSelectedFile(file)
     }
+  }
+
+  const processSelectedFile = (file: File) => {
+    setSelectedImage(file)
+    const previewUrl = URL.createObjectURL(file)
+    setImagePreview(previewUrl)
+    setAnalysis(null)
+  }
+
+  const handleCameraCapture = (file: File) => {
+    processSelectedFile(file)
   }
 
   const handleAnalyze = async () => {
@@ -109,13 +119,13 @@ const CalorieCounter: React.FC = () => {
               Selecionar da Galeria
             </Button>
             <Button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setShowCameraModal(true)}
               variant="outline"
               className="flex-1"
               disabled={isAnalyzing}
             >
               <Camera className="h-4 w-4 mr-2" />
-              Tirar Foto
+              Usar Câmera
             </Button>
           </div>
 
@@ -123,7 +133,6 @@ const CalorieCounter: React.FC = () => {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             onChange={handleFileSelect}
             className="hidden"
           />
@@ -254,6 +263,12 @@ const CalorieCounter: React.FC = () => {
           </CardContent>
         </Card>
       )}
+
+      <CameraModal
+        isOpen={showCameraModal}
+        onClose={() => setShowCameraModal(false)}
+        onCapture={handleCameraCapture}
+      />
     </div>
   )
 }

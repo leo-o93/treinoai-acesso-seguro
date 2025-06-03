@@ -176,6 +176,48 @@ export type Database = {
         }
         Relationships: []
       }
+      food_logs: {
+        Row: {
+          ai_suggestions: Json | null
+          confidence_level: string
+          created_at: string
+          foods_detected: Json
+          health_score: number | null
+          id: string
+          image_data: string
+          macros: Json
+          total_calories: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_suggestions?: Json | null
+          confidence_level?: string
+          created_at?: string
+          foods_detected?: Json
+          health_score?: number | null
+          id?: string
+          image_data: string
+          macros?: Json
+          total_calories?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_suggestions?: Json | null
+          confidence_level?: string
+          created_at?: string
+          foods_detected?: Json
+          health_score?: number | null
+          id?: string
+          image_data?: string
+          macros?: Json
+          total_calories?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       nutrition_plans: {
         Row: {
           created_at: string
