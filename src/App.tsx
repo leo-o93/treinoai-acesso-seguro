@@ -12,6 +12,7 @@ import UpdatePassword from './pages/UpdatePassword'
 import Dashboard from './pages/Dashboard'
 import Integracoes from './pages/Integracoes'
 import IntegracaoCallback from './pages/IntegracaoCallback'
+import ContadorCalorias from './pages/ContadorCalorias'
 import { Toaster } from 'sonner'
 
 const queryClient = new QueryClient()
@@ -32,6 +33,7 @@ function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/integracoes" element={<Integracoes />} />
               <Route path="/integracoes/callback" element={<IntegracaoCallback />} />
+              <Route path="/contador-calorias" element={<ContadorCalorias />} />
             </Routes>
             <Toaster />
           </div>
