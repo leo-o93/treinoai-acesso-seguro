@@ -1,30 +1,17 @@
 
 import React from 'react'
-import { Navigate } from 'react-router-dom'
-import { useAuth } from '@/hooks/useAuth'
-import ResetPassword from '@/components/auth/ResetPassword'
-import AuthLayout from '@/components/auth/AuthLayout'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { ResetPassword as ResetPasswordComponent } from '@/components/auth/ResetPassword'
 
-const ResetPasswordPage = () => {
-  const { user, loading } = useAuth()
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
-
-  if (user) {
-    return <Navigate to="/dashboard" replace />
-  }
-
+const ResetPassword = () => {
   return (
-    <AuthLayout title="Redefinir Senha" subtitle="Digite seu email para receber o link de redefinição.">
-      <ResetPassword />
+    <AuthLayout
+      title="Redefinir senha"
+      subtitle="Digite seu email para receber as instruções"
+    >
+      <ResetPasswordComponent />
     </AuthLayout>
   )
 }
 
-export default ResetPasswordPage
+export default ResetPassword

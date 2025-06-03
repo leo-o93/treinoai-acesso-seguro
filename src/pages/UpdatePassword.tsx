@@ -1,37 +1,81 @@
 
-import React from 'react'
-import { Navigate } from 'react-router-dom'
+import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
-import AuthLayout from '@/components/auth/AuthLayout'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { toast } from 'sonner'
 
 const UpdatePassword = () => {
-  const { user, loading } = useAuth()
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const { updatePassword } = useAuth()
+  const navigate = useNavigate()
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    )
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (password !== confirmPassword) {
+      toast.error('As senhas não coincidem')
+      return
+    }
 
-  if (!user) {
-    return <Navigate to="/login" replace />
+    if (password.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      await updatePassword(password)
+      toast.success('Senha atualizada com sucesso!')
+      navigate('/dashboard')
+    } catch (error) {
+      console.error('Erro ao atualizar senha:', error)
+      toast.error('Erro ao atualizar senha. Tente novamente.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <AuthLayout title="Atualizar Senha" subtitle="Altere sua senha de acesso.">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Atualizar Senha</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600">
-            Funcionalidade de atualização de senha em desenvolvimento.
-          </p>
-        </CardContent>
-      </Card>
+    <AuthLayout
+      title="Atualizar senha"
+      subtitle="Digite sua nova senha"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <Label htmlFor="password">Nova senha</Label>
+          <Input
+            id="password"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Digite sua nova senha"
+            required
+          />
+        </div>
+        
+        <div>
+          <Label htmlFor="confirmPassword">Confirmar senha</Label>
+          <Input
+            id="confirmPassword"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            placeholder="Confirme sua nova senha"
+            required
+          />
+        </div>
+
+        <Button type="submit" disabled={loading} className="w-full">
+          {loading ? 'Atualizando...' : 'Atualizar Senha'}
+        </Button>
+      </form>
     </AuthLayout>
   )
 }
