@@ -3,7 +3,7 @@ import { useState } from "react"
 import { Link, useLocation } from "react-router-dom"
 import { useAuth } from "@/hooks/useAuth"
 import { Button } from "@/components/ui/button"
-import { Menu, X, User, LogOut, Settings, Calendar, BarChart3, Target, Camera } from "lucide-react"
+import { Menu, X, User, LogOut, BarChart3, Camera } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,9 +21,7 @@ export const Navbar = () => {
 
   const navLinks = user ? [
     { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
-    { to: "/plano", label: "Plano Atual", icon: Target },
     { to: "/contador-calorias", label: "Contador Calorias", icon: Camera },
-    { to: "/integracoes", label: "Integrações", icon: Settings },
   ] : []
 
   const handleSignOut = async () => {
@@ -81,19 +79,6 @@ export const Navbar = () => {
                     </div>
                   </div>
                   <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuItem asChild>
-                    <Link to="/perfil" className="cursor-pointer text-popover-foreground">
-                      <User className="mr-2 h-4 w-4" />
-                      Perfil
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
-                    <Link to="/integracoes" className="cursor-pointer text-popover-foreground">
-                      <Settings className="mr-2 h-4 w-4" />
-                      Integrações
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-popover-foreground">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair
@@ -106,7 +91,7 @@ export const Navbar = () => {
                   <Link to="/login">Entrar</Link>
                 </Button>
                 <Button asChild className="bg-primary hover:bg-primary/90">
-                  <Link to="/cadastro">Cadastrar</Link>
+                  <Link to="/register">Cadastrar</Link>
                 </Button>
               </div>
             )}

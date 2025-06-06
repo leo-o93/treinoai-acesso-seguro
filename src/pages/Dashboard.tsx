@@ -4,7 +4,6 @@ import { Navbar } from '@/components/layout/Navbar'
 import { useAuth } from '@/hooks/useAuth'
 import { Navigate } from 'react-router-dom'
 import { EnhancedActivePlans } from '@/components/dashboard/EnhancedActivePlans'
-import TrainerAIMessages from '@/components/dashboard/TrainerAIMessages'
 import AIChat from '@/components/dashboard/AIChat'
 
 const Dashboard = () => {
@@ -35,7 +34,7 @@ const Dashboard = () => {
             Bem-vindo de volta! 👋
           </h1>
           <p className="text-muted-foreground">
-            Acompanhe seu progresso e gerencie seus planos de treino e nutrição
+            Acompanhe seu progresso e gerencie seus planos personalizados
           </p>
         </div>
 
@@ -46,21 +45,12 @@ const Dashboard = () => {
             <EnhancedActivePlans />
           </section>
 
-          {/* Grid com Chat IA e Mensagens WhatsApp */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">
-                Assistente IA Avançado
-              </h2>
-              <AIChat />
-            </div>
-            
-            <div>
-              <h2 className="text-2xl font-semibold text-foreground mb-6">
-                Mensagens WhatsApp
-              </h2>
-              <TrainerAIMessages />
-            </div>
+          {/* Chat IA */}
+          <section>
+            <h2 className="text-2xl font-semibold text-foreground mb-6">
+              Assistente IA Personalizado
+            </h2>
+            <AIChat />
           </section>
         </div>
       </div>
