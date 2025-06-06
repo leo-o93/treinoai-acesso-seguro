@@ -18,7 +18,7 @@ const Home = () => {
     return <Navigate to="/dashboard" replace />
   }
 
-  return <Navigate to="/login" replace />
+  return <Navigate to="/" replace />
 }
 
 export default Home
