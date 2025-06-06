@@ -12,10 +12,10 @@ const Dashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container mx-auto py-8">
-          <div className="animate-pulse">Carregando...</div>
+          <div className="animate-pulse text-muted-foreground">Carregando...</div>
         </div>
       </div>
     )
@@ -26,15 +26,15 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-emerald-50">
+    <div className="min-h-screen bg-background">
       <Navbar />
       
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-foreground mb-2">
             Bem-vindo de volta! 👋
           </h1>
-          <p className="text-gray-600">
+          <p className="text-muted-foreground">
             Acompanhe seu progresso e gerencie seus planos de treino e nutrição
           </p>
         </div>
@@ -42,21 +42,21 @@ const Dashboard = () => {
         <div className="space-y-8">
           {/* Planos Ativos */}
           <section>
-            <h2 className="text-2xl font-semibold text-gray-900 mb-6">Seus Planos</h2>
+            <h2 className="text-2xl font-semibold text-foreground mb-6">Seus Planos</h2>
             <EnhancedActivePlans />
           </section>
 
           {/* Grid com Chat IA e Mensagens WhatsApp */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              <h2 className="text-2xl font-semibold text-foreground mb-6">
                 Assistente IA Avançado
               </h2>
               <AIChat />
             </div>
             
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-6">
+              <h2 className="text-2xl font-semibold text-foreground mb-6">
                 Mensagens WhatsApp
               </h2>
               <TrainerAIMessages />

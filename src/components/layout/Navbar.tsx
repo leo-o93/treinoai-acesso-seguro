@@ -35,12 +35,12 @@ export const Navbar = () => {
   }
 
   return (
-    <nav className="bg-white shadow-sm border-b">
+    <nav className="bg-card shadow-sm border-b border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center">
-              <span className="text-2xl font-bold text-blue-600">TrainerAI</span>
+              <span className="text-2xl font-bold text-primary">TrainerAI</span>
             </Link>
           </div>
 
@@ -54,8 +54,8 @@ export const Navbar = () => {
                   to={link.to}
                   className={`inline-flex items-center px-1 pt-1 text-sm font-medium border-b-2 ${
                     isActive(link.to)
-                      ? "border-blue-500 text-gray-900"
-                      : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                      ? "border-primary text-foreground"
+                      : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
                   }`}
                 >
                   <Icon className="h-4 w-4 mr-2" />
@@ -74,27 +74,27 @@ export const Navbar = () => {
                     <User className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuContent className="w-56 bg-popover border-border" align="end" forceMount>
                   <div className="flex items-center justify-start gap-2 p-2">
                     <div className="flex flex-col space-y-1 leading-none">
-                      <p className="font-medium">{user.email}</p>
+                      <p className="font-medium text-popover-foreground">{user.email}</p>
                     </div>
                   </div>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator className="bg-border" />
                   <DropdownMenuItem asChild>
-                    <Link to="/perfil" className="cursor-pointer">
+                    <Link to="/perfil" className="cursor-pointer text-popover-foreground">
                       <User className="mr-2 h-4 w-4" />
                       Perfil
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/integracoes" className="cursor-pointer">
+                    <Link to="/integracoes" className="cursor-pointer text-popover-foreground">
                       <Settings className="mr-2 h-4 w-4" />
                       Integrações
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer">
+                  <DropdownMenuSeparator className="bg-border" />
+                  <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-popover-foreground">
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair
                   </DropdownMenuItem>
@@ -105,7 +105,7 @@ export const Navbar = () => {
                 <Button variant="ghost" asChild>
                   <Link to="/login">Entrar</Link>
                 </Button>
-                <Button asChild>
+                <Button asChild className="bg-primary hover:bg-primary/90">
                   <Link to="/cadastro">Cadastrar</Link>
                 </Button>
               </div>
@@ -136,8 +136,8 @@ export const Navbar = () => {
                     to={link.to}
                     className={`block pl-3 pr-4 py-2 text-base font-medium ${
                       isActive(link.to)
-                        ? "bg-blue-50 border-r-4 border-blue-500 text-blue-700"
-                        : "border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                        ? "bg-accent border-r-4 border-primary text-accent-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground hover:bg-accent"
                     }`}
                     onClick={() => setIsMobileMenuOpen(false)}
                   >

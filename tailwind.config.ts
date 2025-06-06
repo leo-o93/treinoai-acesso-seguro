@@ -29,9 +29,8 @@ export default {
 				background: 'hsl(var(--background))',
 				foreground: 'hsl(var(--foreground))',
 				primary: {
-					DEFAULT: '#10b981', // emerald-500
-					foreground: '#ffffff',
-					hover: '#059669', // emerald-600
+					DEFAULT: 'hsl(var(--primary))',
+					foreground: 'hsl(var(--primary-foreground))',
 				},
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
@@ -57,6 +56,15 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Cores customizadas para o TrainerAI
+				trainerai: {
+					green: '#22c55e',
+					'green-dark': '#16a34a',
+					'green-light': '#4ade80',
+					dark: '#0f0f0f',
+					'dark-card': '#1a1a1a',
+					'dark-border': '#333333',
+				}
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
