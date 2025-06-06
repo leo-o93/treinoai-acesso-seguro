@@ -13,6 +13,9 @@ import { ptBR } from 'date-fns/locale'
 interface GoalsStepProps {
   data: any
   updateData: (data: any) => void
+  onNext?: () => void
+  onComplete?: () => Promise<void>
+  isSubmitting?: boolean
 }
 
 export const GoalsStep: React.FC<GoalsStepProps> = ({ data, updateData }) => {

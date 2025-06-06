@@ -49,6 +49,14 @@ interface OnboardingData {
   }
 }
 
+interface StepProps {
+  data: OnboardingData
+  updateData: (data: Partial<OnboardingData>) => void
+  onNext?: () => void
+  onComplete?: () => Promise<void>
+  isSubmitting?: boolean
+}
+
 const steps = [
   { title: 'Informações Pessoais', component: PersonalInfoStep },
   { title: 'Objetivos', component: GoalsStep },
@@ -120,7 +128,12 @@ export const OnboardingFlow: React.FC = () => {
 
       if (profileError) throw profileError
 
-      // Create initial training plan
+      // Create initial training plan - cast to Json type
+      const trainingPlanData = {
+        profile: data,
+        created_via: 'onboarding'
+      } as any
+
       const { error: trainingError } = await supabase
         .from('training_plans')
         .insert({
@@ -129,17 +142,20 @@ export const OnboardingFlow: React.FC = () => {
           description: `Plano criado com base no seu perfil e objetivos`,
           difficulty_level: data.fitnessLevel,
           duration_weeks: 12,
-          plan_data: {
-            profile: data,
-            created_via: 'onboarding'
-          },
+          plan_data: trainingPlanData,
           status: 'active',
           created_by_ai: true
         })
 
       if (trainingError) throw trainingError
 
-      // Create initial nutrition plan
+      // Create initial nutrition plan - cast to Json type
+      const nutritionPlanData = {
+        profile: data,
+        macros: data.macros,
+        created_via: 'onboarding'
+      } as any
+
       const { error: nutritionError } = await supabase
         .from('nutrition_plans')
         .insert({
@@ -147,11 +163,7 @@ export const OnboardingFlow: React.FC = () => {
           title: `Plano Nutricional - ${data.primaryGoal}`,
           description: `Plano alimentar baseado nas suas preferências e objetivos`,
           daily_calories: data.targetCalories || 2000,
-          meal_plan: {
-            profile: data,
-            macros: data.macros,
-            created_via: 'onboarding'
-          },
+          meal_plan: nutritionPlanData,
           status: 'active',
           created_by_ai: true
         })
@@ -171,6 +183,15 @@ export const OnboardingFlow: React.FC = () => {
 
   const StepComponent = steps[currentStep].component
   const progress = ((currentStep + 1) / steps.length) * 100
+
+  // Prepare props for step components
+  const stepProps: StepProps = {
+    data,
+    updateData,
+    onNext: nextStep,
+    onComplete: completeOnboarding,
+    isSubmitting
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-emerald-50 py-8">
@@ -194,13 +215,7 @@ export const OnboardingFlow: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <StepComponent 
-              data={data} 
-              updateData={updateData} 
-              onNext={nextStep}
-              onComplete={completeOnboarding}
-              isSubmitting={isSubmitting}
-            />
+            <StepComponent {...stepProps} />
             
             <div className="flex justify-between mt-8">
               <Button 

@@ -6,8 +6,10 @@ import { CheckCircle, Dumbbell, Apple, Calendar, Target } from 'lucide-react'
 
 interface PlanPreviewStepProps {
   data: any
-  onComplete: () => void
-  isSubmitting: boolean
+  updateData: (data: any) => void
+  onNext?: () => void
+  onComplete?: () => Promise<void>
+  isSubmitting?: boolean
 }
 
 export const PlanPreviewStep: React.FC<PlanPreviewStepProps> = ({ 

@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
@@ -7,10 +6,14 @@ import { Calculator, Target, TrendingUp, Activity } from 'lucide-react'
 interface CalculationStepProps {
   data: any
   updateData: (data: any) => void
+  onNext?: () => void
+  onComplete?: () => Promise<void>
+  isSubmitting?: boolean
 }
 
 export const CalculationStep: React.FC<CalculationStepProps> = ({ data, updateData }) => {
   useEffect(() => {
+    
     // Calcular BMR (Taxa Metabólica Basal) usando fórmula de Mifflin-St Jeor
     const calculateBMR = () => {
       const { weight, height, age, gender } = data

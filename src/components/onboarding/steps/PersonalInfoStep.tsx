@@ -7,6 +7,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 interface PersonalInfoStepProps {
   data: any
   updateData: (data: any) => void
+  onNext?: () => void
+  onComplete?: () => Promise<void>
+  isSubmitting?: boolean
 }
 
 export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({ data, updateData }) => {

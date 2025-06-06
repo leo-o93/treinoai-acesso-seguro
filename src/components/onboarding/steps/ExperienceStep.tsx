@@ -8,6 +8,9 @@ import { User, Users, Award } from 'lucide-react'
 interface ExperienceStepProps {
   data: any
   updateData: (data: any) => void
+  onNext?: () => void
+  onComplete?: () => Promise<void>
+  isSubmitting?: boolean
 }
 
 export const ExperienceStep: React.FC<ExperienceStepProps> = ({ data, updateData }) => {
